@@ -307,7 +307,7 @@ const XP_TABLE=[
   {lv:10,name:'Leggenda',  xp:11000},
 ];
 const XP_RULES={
-  presenza:100, vittoria:150, pareggio:50, mvp:200,
+  presenza:100, vittoria:150, pareggio:50,
   golAttaccante:80, golCentrocampista:150, golDifensore:200, golPortiere:300,
   parataDec:150,
   golSubiti_02:200, golSubiti_34:100, golSubiti_5:30,
@@ -342,7 +342,6 @@ function calcPlayerXP(playerId){
   // Dati da partite Firebase: MVP, portiere gol subiti, eventi speciali
   S.matches.forEach(m=>{
     if(m.players?.[playerId]!=='confirmed')return;
-    if(m.mvp===playerId)xp+=XP_RULES.mvp;
     if(p.role==='Portiere'){
       const onA=m.teamA?.includes(playerId);
       const conceded=onA?(m.scoreB||0):(m.scoreA||0);
@@ -2123,7 +2122,7 @@ function pgRpg(){
       <div class="card" style="background:linear-gradient(135deg,#0d2a0d,#0a1f0a);border-color:#1e4a1e;margin-bottom:12px">
         <div style="font-size:11px;color:var(--grn);letter-spacing:1px;font-weight:700;margin-bottom:6px">SISTEMA LIVELLI</div>
         <div style="font-size:12px;color:var(--mut);line-height:1.6">
-          XP calcolati su presenze, vittorie, pareggi, gol (pesati per ruolo) e MVP. Ogni stagione si riparte da zero.
+          XP calcolati su presenze, vittorie, pareggi e gol (pesati per ruolo). Ogni stagione si riparte da zero.
         </div>
         <div style="display:flex;gap:16px;margin-top:10px">
           <div style="text-align:center">
@@ -2179,6 +2178,52 @@ function pgRpg(){
           <span style="color:var(--mut)">${lv.xp.toLocaleString()} XP</span>
         </div>`).join('')}
       </div>
+
+      <!-- Regole XP -->
+      <div class="card" style="margin-top:4px">
+        <div style="font-size:10px;color:var(--mut);letter-spacing:2px;margin-bottom:10px">📋 COME SI GUADAGNANO GLI XP</div>
+
+        <div style="font-size:11px;color:var(--grn);letter-spacing:1px;font-weight:700;margin-bottom:6px">GENERALI</div>
+        ${[
+          ['Presenza','+'+XP_RULES.presenza+'','📅'],
+          ['Vittoria','+'+XP_RULES.vittoria,'🏆'],
+          ['Pareggio','+'+XP_RULES.pareggio,'🤝'],
+        ].map(([l,v,e])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1a2a1a;font-size:12px">
+          <span style="color:var(--mut)">${e} ${l}</span>
+          <span style="font-weight:700;color:var(--grn)">${v} XP</span>
+        </div>`).join('')}
+
+        <div style="font-size:11px;color:var(--grn);letter-spacing:1px;font-weight:700;margin:10px 0 6px">GOL PER RUOLO</div>
+        ${[
+          ['Attaccante','+'+XP_RULES.golAttaccante,'⚡'],
+          ['Centrocampista','+'+XP_RULES.golCentrocampista,'⚙️'],
+          ['Difensore','+'+XP_RULES.golDifensore,'🛡️'],
+          ['Portiere','+'+XP_RULES.golPortiere,'🧤'],
+        ].map(([l,v,e])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1a2a1a;font-size:12px">
+          <span style="color:var(--mut)">${e} Gol ${l}</span>
+          <span style="font-weight:700;color:var(--grn)">${v} XP</span>
+        </div>`).join('')}
+
+        <div style="font-size:11px;color:var(--grn);letter-spacing:1px;font-weight:700;margin:10px 0 6px">PORTIERE — GOL SUBITI</div>
+        ${[
+          ['0 – 2 gol subiti','+'+XP_RULES.golSubiti_02,'🧤'],
+          ['3 – 4 gol subiti','+'+XP_RULES.golSubiti_34,'🧤'],
+          ['5+ gol subiti','+'+XP_RULES.golSubiti_5,'🧤'],
+          ['Parata decisiva','+'+XP_RULES.parataDec,'🧤'],
+        ].map(([l,v,e])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1a2a1a;font-size:12px">
+          <span style="color:var(--mut)">${e} ${l}</span>
+          <span style="font-weight:700;color:var(--grn)">${v} XP</span>
+        </div>`).join('')}
+
+        <div style="font-size:11px;color:#f87171;letter-spacing:1px;font-weight:700;margin:10px 0 6px">PENALITÀ</div>
+        ${[
+          ['Autorete',''+XP_RULES.autorete,'🔴'],
+          ['Rigore fallito',''+XP_RULES.rigoreFallito,'❌'],
+        ].map(([l,v,e])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1a2a1a;font-size:12px">
+          <span style="color:var(--mut)">${e} ${l}</span>
+          <span style="font-weight:700;color:#f87171">${v} XP</span>
+        </div>`).join('')}
+      </div>
     </div>`;
   }
 
@@ -2200,7 +2245,6 @@ function pgRpg(){
     let mx=XP_RULES.presenza;
     if(myS>oppS)mx+=XP_RULES.vittoria;
     else if(myS===oppS)mx+=XP_RULES.pareggio;
-    if(m.mvp===p.id)mx+=XP_RULES.mvp;
     const goals=m.ratings?.[p.id]?.goals||0;
     if(goals>0){
       const rule=p.role==='Attaccante'?XP_RULES.golAttaccante:
@@ -2212,7 +2256,7 @@ function pgRpg(){
       const c=onA?(m.scoreB||0):(m.scoreA||0);
       mx+=c<=2?XP_RULES.golSubiti_02:c<=4?XP_RULES.golSubiti_34:XP_RULES.golSubiti_5;
     }
-    breakdown.push({date:m.date,xp:mx,mvp:m.mvp===p.id,goals});
+    breakdown.push({date:m.date,xp:mx,goals});
   });
   breakdown.sort((a,b)=>{
     const pa=a.date?a.date.split('/').reverse().join(''):'';
@@ -2277,7 +2321,6 @@ function pgRpg(){
       ${breakdown.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1a2a1a;font-size:13px">
         <span style="color:var(--mut)">${b.date}</span>
         <div style="display:flex;gap:8px;align-items:center">
-          ${b.mvp?'<span style="font-size:11px;color:var(--yel)">⭐ MVP</span>':''}
           ${b.goals>0?`<span style="font-size:11px;color:#f59e0b">⚽×${b.goals}</span>`:''}
         </div>
         <span style="font-weight:700;color:var(--grn)">+${b.xp} XP</span>
@@ -2295,7 +2338,6 @@ function pgRpg(){
         ['Presenza','+'+XP_RULES.presenza,''],
         ['Vittoria','+'+XP_RULES.vittoria,''],
         ['Pareggio','+'+XP_RULES.pareggio,''],
-        ['MVP','+'+XP_RULES.mvp,'⭐'],
         ['Gol ('+p.role+')','+'+{Attaccante:XP_RULES.golAttaccante,Centrocampista:XP_RULES.golCentrocampista,Difensore:XP_RULES.golDifensore,Portiere:XP_RULES.golPortiere}[p.role],'⚽'],
         ...(p.role==='Portiere'?[
           ['Gol subiti 0-2','+'+XP_RULES.golSubiti_02,'🧤'],
