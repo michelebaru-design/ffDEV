@@ -324,43 +324,35 @@ function getLevelInfo(xp){
 }
 
 function calcPlayerXP(playerId){
-  let xp=0;
   const p=S.players.find(x=>x.id===playerId);
   if(!p)return 0;
-  S.matches.forEach(m=>{
-    const players=m.players||{};
-    if(players[playerId]!=='confirmed')return;
-    // Presenza
-    xp+=XP_RULES.presenza;
-    // Risultato
-    const onA=m.teamA?.includes(playerId);
-    const myS=onA?(m.scoreA||0):(m.scoreB||0);
-    const oppS=onA?(m.scoreB||0):(m.scoreA||0);
-    if(myS>oppS)xp+=XP_RULES.vittoria;
-    else if(myS===oppS)xp+=XP_RULES.pareggio;
-    // MVP
-    if(m.mvp===playerId)xp+=XP_RULES.mvp;
-    // Gol
-    const goals=m.ratings?.[playerId]?.goals||0;
-    if(goals>0){
-      const rule=p.role==='Attaccante'?XP_RULES.golAttaccante:
+  let xp=0;
+
+  // Storia completa dai dati cumulativi
+  xp+=p.G*XP_RULES.presenza;
+  xp+=p.V*XP_RULES.vittoria;
+  xp+=p.P*XP_RULES.pareggio;
+
+  // Gol pesati per ruolo (storia completa)
+  const goalRule=p.role==='Attaccante'?XP_RULES.golAttaccante:
                  p.role==='Centrocampista'?XP_RULES.golCentrocampista:
-                 p.role==='Difensore'?XP_RULES.golDifensore:
-                 XP_RULES.golPortiere;
-      xp+=goals*rule;
-    }
-    // Gol subiti portiere
+                 p.role==='Difensore'?XP_RULES.golDifensore:XP_RULES.golPortiere;
+  xp+=p.GF*goalRule;
+
+  // Dati da partite Firebase: MVP, portiere gol subiti, eventi speciali
+  S.matches.forEach(m=>{
+    if(m.players?.[playerId]!=='confirmed')return;
+    if(m.mvp===playerId)xp+=XP_RULES.mvp;
     if(p.role==='Portiere'){
+      const onA=m.teamA?.includes(playerId);
       const conceded=onA?(m.scoreB||0):(m.scoreA||0);
-      if(conceded<=2)xp+=XP_RULES.golSubiti_02;
-      else if(conceded<=4)xp+=XP_RULES.golSubiti_34;
-      else xp+=XP_RULES.golSubiti_5;
+      xp+=conceded<=2?XP_RULES.golSubiti_02:conceded<=4?XP_RULES.golSubiti_34:XP_RULES.golSubiti_5;
     }
-    // Autorete e rigore fallito
     if(m.ratings?.[playerId]?.ownGoals)xp+=XP_RULES.autorete*(m.ratings[playerId].ownGoals);
     if(m.ratings?.[playerId]?.penMiss)xp+=XP_RULES.rigoreFallito*(m.ratings[playerId].penMiss);
     if(m.ratings?.[playerId]?.saveDec)xp+=XP_RULES.parataDec*(m.ratings[playerId].saveDec);
   });
+
   return Math.max(0,xp);
 }
 
