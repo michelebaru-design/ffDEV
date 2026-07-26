@@ -541,7 +541,8 @@ let S={tab:'home',players:[],matches:[],match:null,
   seasonName:'',      /* nome stagione corrente es. "2024-25" */
   showSeasonDetail:null, /* stagione aperta nell'archivio */
   figFilter:'all',    /* filtro ruolo nella galleria figurine */
-  figFullscreen:null  /* id giocatore in fullscreen figurine */
+  figFullscreen:null, /* id giocatore in fullscreen figurine */
+  rpgPlayer:null      /* giocatore selezionato nel tab RPG */
 };
 
 /* ═══════════════════════════════════════
@@ -840,6 +841,7 @@ function appShell(){
     {id:'figurine',e:'🃏',l:'Card'},
     {id:'gloria',e:'🏆',l:'Club'},
     {id:'stats',e:'📊',l:'Stats'},
+    {id:'rpg',e:'🎮',l:'RPG'},
   ];
   return `<div id="app">
   <aside id="sidebar">
