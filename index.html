@@ -290,6 +290,108 @@ let GROQ_KEY=getGroqKey(); // letta da localStorage — mai nel codice
 const CAPTAIN_PIN='123456';
 const BIANCHI='Bianchi',NERI='Neri';
 
+
+/* ═══════════════════════════════════════
+   🎮 SISTEMA RPG — LIVELLI E XP
+═══════════════════════════════════════ */
+const XP_TABLE=[
+  {lv:1,name:'Pivetto',    xp:0},
+  {lv:2,name:'Riserva',    xp:500},
+  {lv:3,name:'Panchinaro', xp:1000},
+  {lv:4,name:'Titolare',   xp:1800},
+  {lv:5,name:'Jolly',      xp:2800},
+  {lv:6,name:'Veterano',   xp:4000},
+  {lv:7,name:'Leader',     xp:5500},
+  {lv:8,name:'Capitano',   xp:7200},
+  {lv:9,name:'Campione',   xp:9000},
+  {lv:10,name:'Leggenda',  xp:11000},
+];
+const XP_RULES={
+  presenza:100, vittoria:150, pareggio:50, mvp:200,
+  golAttaccante:80, golCentrocampista:150, golDifensore:200, golPortiere:300,
+  parataDec:150,
+  golSubiti_02:200, golSubiti_34:100, golSubiti_5:30,
+  autorete:-150, rigoreFallito:-100,
+};
+
+function getLevelInfo(xp){
+  let cur=XP_TABLE[0],next=XP_TABLE[1];
+  for(let i=XP_TABLE.length-1;i>=0;i--){
+    if(xp>=XP_TABLE[i].xp){cur=XP_TABLE[i];next=XP_TABLE[i+1]||null;break;}
+  }
+  const pct=next?Math.round((xp-cur.xp)/(next.xp-cur.xp)*100):100;
+  return{...cur,next,pct,xp};
+}
+
+function calcPlayerXP(playerId){
+  let xp=0;
+  const p=S.players.find(x=>x.id===playerId);
+  if(!p)return 0;
+  S.matches.forEach(m=>{
+    const players=m.players||{};
+    if(players[playerId]!=='confirmed')return;
+    // Presenza
+    xp+=XP_RULES.presenza;
+    // Risultato
+    const onA=m.teamA?.includes(playerId);
+    const myS=onA?(m.scoreA||0):(m.scoreB||0);
+    const oppS=onA?(m.scoreB||0):(m.scoreA||0);
+    if(myS>oppS)xp+=XP_RULES.vittoria;
+    else if(myS===oppS)xp+=XP_RULES.pareggio;
+    // MVP
+    if(m.mvp===playerId)xp+=XP_RULES.mvp;
+    // Gol
+    const goals=m.ratings?.[playerId]?.goals||0;
+    if(goals>0){
+      const rule=p.role==='Attaccante'?XP_RULES.golAttaccante:
+                 p.role==='Centrocampista'?XP_RULES.golCentrocampista:
+                 p.role==='Difensore'?XP_RULES.golDifensore:
+                 XP_RULES.golPortiere;
+      xp+=goals*rule;
+    }
+    // Gol subiti portiere
+    if(p.role==='Portiere'){
+      const conceded=onA?(m.scoreB||0):(m.scoreA||0);
+      if(conceded<=2)xp+=XP_RULES.golSubiti_02;
+      else if(conceded<=4)xp+=XP_RULES.golSubiti_34;
+      else xp+=XP_RULES.golSubiti_5;
+    }
+    // Autorete e rigore fallito
+    if(m.ratings?.[playerId]?.ownGoals)xp+=XP_RULES.autorete*(m.ratings[playerId].ownGoals);
+    if(m.ratings?.[playerId]?.penMiss)xp+=XP_RULES.rigoreFallito*(m.ratings[playerId].penMiss);
+    if(m.ratings?.[playerId]?.saveDec)xp+=XP_RULES.parataDec*(m.ratings[playerId].saveDec);
+  });
+  return Math.max(0,xp);
+}
+
+function calcBadges(playerId){
+  const p=S.players.find(x=>x.id===playerId);
+  if(!p)return[];
+  const badges=[];
+  // Esordiente — prima presenza
+  const partecipato=S.matches.some(m=>m.players?.[playerId]==='confirmed');
+  if(p.G>0||partecipato)badges.push({e:'👶',n:'Esordiente',d:'Prima presenza'});
+  // Fedele — 30 presenze
+  if(p.G>=30)badges.push({e:'💎',n:'Fedele',d:'30+ presenze stagione'});
+  // Cecchino — 25 gol stagione
+  if(p.GF>=25)badges.push({e:'🎯',n:'Cecchino',d:'25+ gol stagione'});
+  // Fulmine — 5 gol in una partita
+  const hasFulmine=S.matches.some(m=>(m.ratings?.[playerId]?.goals||0)>=5);
+  if(hasFulmine)badges.push({e:'⚡',n:'Fulmine',d:'5+ gol in una partita'});
+  // On Fire — 3 MVP consecutivi
+  let mvpStreak=0;
+  for(const m of [...S.matches].sort((a,b)=>{
+    const pa=a.date?a.date.split('/').reverse().join(''):0;
+    const pb=b.date?b.date.split('/').reverse().join(''):0;
+    return pb.localeCompare(pa);
+  })){
+    if(m.mvp===playerId)mvpStreak++;
+    else break;
+  }
+  if(mvpStreak>=3)badges.push({e:'🔥',n:'On Fire',d:'3 MVP consecutivi'});
+  return badges;
+}
+
 /* ═══════════════════════════════════════
    ☁️ CLOUD — Firebase Realtime Database
    • Letture: pubbliche (regole .read:true)
@@ -710,18 +812,20 @@ const ALTRO_TABS_CAP=[
   {id:'giornale', e:'📰', l:'Giornale'},
   {id:'figurine', e:'🃏', l:'Card'},
   {id:'stats',    e:'📊', l:'Stats'},
+  {id:'rpg',      e:'🎮', l:'RPG'},
 ];
 const ALTRO_TABS_VIEW=[
   {id:'stadio',   e:'📺', l:'Stadio'},
   {id:'giornale', e:'📰', l:'Giornale'},
   {id:'figurine', e:'🃏', l:'Card'},
   {id:'stats',    e:'📊', l:'Stats'},
+  {id:'rpg',      e:'🎮', l:'RPG'},
 ];
 
 function appShell(){
   const pages={home:pgHome,rosa:pgRosa,nuovo:pgNuovo,convoca:pgConvoca,
     partita:pgPartita,stadio:pgStadio,giornale:pgGiornale,figurine:pgFigurine,
-    gloria:pgGloria,stats:pgStats};
+    gloria:pgGloria,stats:pgStats,rpg:pgRpg};
   const cc=S.match?Object.values(S.match.players).filter(x=>x==='confirmed').length:0;
   const altroTabs=S.captainMode?ALTRO_TABS_CAP:ALTRO_TABS_VIEW;
   const isAltroTab=altroTabs.some(t=>t.id===S.tab);
@@ -785,7 +889,7 @@ function appShell(){
 </div>`;}
 
 function go(t){
-  const ok=S.captainMode?['home','rosa','nuovo','convoca','partita','stadio','giornale','figurine','gloria','stats']:['home','rosa','stadio','giornale','figurine','gloria','stats'];
+  const ok=S.captainMode?['home','rosa','nuovo','convoca','partita','stadio','giornale','figurine','gloria','stats','rpg']:['home','rosa','stadio','giornale','figurine','gloria','stats','rpg'];
   S.tab=ok.includes(t)?t:'home';S.editTeams=false;S.swapSel=null;render();
 }
 function toggleAltro(){
@@ -2001,6 +2105,219 @@ function pgGloria(){
 /* ═══════════════════════════════════════
    📊 STATS — profilo giocatore
 ═══════════════════════════════════════ */
+
+/* ═══════════════════════════════════════
+   🎮 RPG — LIVELLI E XP
+═══════════════════════════════════════ */
+function pgRpg(){
+  const sel=S.rpgPlayer;
+  const p=sel?S.players.find(x=>x.id===sel):null;
+  const RCOL={Portiere:'#60a5fa',Difensore:'#4ade80',Centrocampista:'#fbbf24',Attaccante:'#f87171'};
+
+  // Lista classifica XP
+  const ranking=[...S.players]
+    .filter(p=>p.G>0||S.matches.some(m=>m.players?.[p.id]==='confirmed'))
+    .map(p=>({...p,xp:calcPlayerXP(p.id),lv:getLevelInfo(calcPlayerXP(p.id))}))
+    .sort((a,b)=>b.xp-a.xp);
+
+  if(!p){
+    const topXP=ranking[0]?.xp||1;
+    return `<div style="max-width:640px;margin:0 auto">
+      <div class="section-title">🎮 RPG</div>
+
+      <!-- Info sistema -->
+      <div class="card" style="background:linear-gradient(135deg,#0d2a0d,#0a1f0a);border-color:#1e4a1e;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--grn);letter-spacing:1px;font-weight:700;margin-bottom:6px">SISTEMA LIVELLI</div>
+        <div style="font-size:12px;color:var(--mut);line-height:1.6">
+          XP calcolati su presenze, vittorie, gol, MVP e prestazioni. Ogni stagione si riparte da zero.
+        </div>
+        <div style="display:flex;gap:16px;margin-top:10px">
+          <div style="text-align:center">
+            <div style="font-size:20px;font-weight:900;color:var(--grn)">${ranking.length}</div>
+            <div style="font-size:9px;color:var(--mut);letter-spacing:1px">GIOCATORI</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:20px;font-weight:900;color:var(--yel)">${ranking[0]?.lv.lv||'-'}</div>
+            <div style="font-size:9px;color:var(--mut);letter-spacing:1px">LV MAX</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:20px;font-weight:900;color:#f87171">${ranking[0]?.xp||0}</div>
+            <div style="font-size:9px;color:var(--mut);letter-spacing:1px">XP RECORD</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Classifica XP -->
+      <div style="font-size:10px;color:var(--mut);letter-spacing:2px;margin-bottom:8px">CLASSIFICA XP</div>
+      ${ranking.map((pl,i)=>{
+        const li=pl.lv;
+        const pct=li.pct;
+        const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        const col=RCOL[pl.role]||'var(--mut)';
+        const ph=playerPhoto(pl.name);
+        return `<div onclick="S.rpgPlayer='${pl.id}';render()" style="background:var(--bg2);border:1px solid ${i<3?'#1e3a1e':'#1a1a1a'};border-radius:14px;padding:12px;margin-bottom:8px;cursor:pointer;display:flex;gap:12px;align-items:center">
+          <div style="font-size:18px;width:24px;text-align:center;color:var(--mut);font-weight:700;flex-shrink:0">${medal||'#'+(i+1)}</div>
+          <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid ${col};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg3)">
+            <img src="cards/${ph}" style="width:100%;height:100%;object-fit:cover" onerror="this.hidden=true"/>
+            ${RICON[pl.role]}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <div style="font-weight:700;font-size:14px">${pl.name}</div>
+              <div style="font-size:13px;font-weight:900;color:var(--grn)">${li.xp} <span style="font-size:10px;color:var(--mut)">XP</span></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+              <div style="font-size:10px;color:${col};font-weight:700">Lv.${li.lv} ${li.name}</div>
+              ${li.next?`<div style="font-size:9px;color:var(--mut)">${li.next.xp-li.xp} XP al prossimo</div>`:'<div style="font-size:9px;color:var(--yel)">⭐ MAX</div>'}
+            </div>
+            <div style="background:#1a2a1a;border-radius:99px;height:4px;overflow:hidden">
+              <div style="width:${pct}%;background:${i===0?'linear-gradient(90deg,var(--grn2),var(--grn))':'var(--grn2)'};height:100%;border-radius:99px;transition:width .5s"></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+
+      <!-- Legenda livelli -->
+      <div class="card" style="margin-top:4px">
+        <div style="font-size:10px;color:var(--mut);letter-spacing:2px;margin-bottom:10px">TUTTI I LIVELLI</div>
+        ${XP_TABLE.map(lv=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1a2a1a;font-size:12px">
+          <span style="color:var(--txt)">Lv.${lv.lv} <span style="font-weight:600">${lv.name}</span></span>
+          <span style="color:var(--mut)">${lv.xp.toLocaleString()} XP</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── PROFILO RPG GIOCATORE ──
+  const xp=calcPlayerXP(p.id);
+  const li=getLevelInfo(xp);
+  const badges=calcBadges(p.id);
+  const col=RCOL[p.role]||'var(--mut)';
+  const ph=playerPhoto(p.name);
+  const rank=ranking.findIndex(x=>x.id===p.id)+1;
+
+  // XP breakdown
+  let breakdown=[];
+  S.matches.forEach(m=>{
+    if(m.players?.[p.id]!=='confirmed')return;
+    const onA=m.teamA?.includes(p.id);
+    const myS=onA?(m.scoreA||0):(m.scoreB||0);
+    const oppS=onA?(m.scoreB||0):(m.scoreA||0);
+    let mx=XP_RULES.presenza;
+    if(myS>oppS)mx+=XP_RULES.vittoria;
+    else if(myS===oppS)mx+=XP_RULES.pareggio;
+    if(m.mvp===p.id)mx+=XP_RULES.mvp;
+    const goals=m.ratings?.[p.id]?.goals||0;
+    if(goals>0){
+      const rule=p.role==='Attaccante'?XP_RULES.golAttaccante:
+                 p.role==='Centrocampista'?XP_RULES.golCentrocampista:
+                 p.role==='Difensore'?XP_RULES.golDifensore:XP_RULES.golPortiere;
+      mx+=goals*rule;
+    }
+    if(p.role==='Portiere'){
+      const c=onA?(m.scoreB||0):(m.scoreA||0);
+      mx+=c<=2?XP_RULES.golSubiti_02:c<=4?XP_RULES.golSubiti_34:XP_RULES.golSubiti_5;
+    }
+    breakdown.push({date:m.date,xp:mx,mvp:m.mvp===p.id,goals});
+  });
+  breakdown.sort((a,b)=>{
+    const pa=a.date?a.date.split('/').reverse().join(''):'';
+    const pb=b.date?b.date.split('/').reverse().join(''):'';
+    return pb.localeCompare(pa);
+  });
+
+  return `<div style="max-width:640px;margin:0 auto">
+    <button onclick="S.rpgPlayer=null;render()" style="background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;margin-bottom:12px;padding:0">‹ Classifica</button>
+
+    <!-- Hero card -->
+    <div style="background:linear-gradient(135deg,#0d2a0d,#0a1f0a);border:1px solid #1e4a1e;border-radius:16px;padding:16px;margin-bottom:12px">
+      <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
+        <div style="position:relative;flex-shrink:0">
+          <div style="width:68px;height:68px;border-radius:50%;overflow:hidden;border:3px solid ${col};display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--bg3)">
+            <img src="cards/${ph}" style="width:100%;height:100%;object-fit:cover" onerror="this.hidden=true"/>
+            ${RICON[p.role]}
+          </div>
+          <div style="position:absolute;bottom:-4px;right:-4px;background:var(--grn2);color:#fff;font-size:10px;font-weight:900;padding:1px 6px;border-radius:99px;border:2px solid #0a0a0a">
+            ${li.lv}
+          </div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:20px;font-weight:900">${p.name}</div>
+          <div style="font-size:11px;color:${col};font-weight:700;margin-top:2px">${p.role.toUpperCase()} · #${rank} in classifica</div>
+          <div style="font-size:22px;font-weight:900;color:var(--grn);margin-top:4px">${li.name.toUpperCase()}</div>
+        </div>
+        <div style="text-align:center;flex-shrink:0">
+          <div style="font-size:32px;font-weight:900;color:var(--grn)">${xp}</div>
+          <div style="font-size:9px;color:var(--mut);letter-spacing:1px">XP TOTALI</div>
+        </div>
+      </div>
+
+      <!-- Barra XP -->
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-bottom:4px">
+        <span>Lv.${li.lv} ${li.name}</span>
+        ${li.next?`<span>Lv.${li.next.lv} ${li.next.name} — ${li.next.xp-xp} XP mancanti</span>`:'<span style="color:var(--yel)">⭐ LIVELLO MASSIMO</span>'}
+      </div>
+      <div style="background:#1a3a1a;border-radius:99px;height:8px;overflow:hidden">
+        <div style="width:${li.pct}%;background:linear-gradient(90deg,var(--grn2),var(--grn));height:100%;border-radius:99px;transition:width .6s"></div>
+      </div>
+      <div style="text-align:right;font-size:10px;color:var(--grn);margin-top:3px">${li.pct}%</div>
+    </div>
+
+    <!-- Badge -->
+    ${badges.length>0?`<div class="card">
+      <div style="font-size:10px;color:var(--mut);letter-spacing:2px;margin-bottom:10px">BADGE SBLOCCATI</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${badges.map(b=>`<div style="background:#0d2a0d;border:1px solid #1e4a1e;border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:6px">
+          <span style="font-size:20px">${b.e}</span>
+          <div>
+            <div style="font-size:12px;font-weight:700">${b.n}</div>
+            <div style="font-size:10px;color:var(--mut)">${b.d}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- Storico XP per partita -->
+    <div class="card">
+      <div style="font-size:10px;color:var(--mut);letter-spacing:2px;margin-bottom:10px">XP PER PARTITA</div>
+      ${breakdown.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1a2a1a;font-size:13px">
+        <span style="color:var(--mut)">${b.date}</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${b.mvp?'<span style="font-size:11px;color:var(--yel)">⭐ MVP</span>':''}
+          ${b.goals>0?`<span style="font-size:11px;color:#f59e0b">⚽×${b.goals}</span>`:''}
+        </div>
+        <span style="font-weight:700;color:var(--grn)">+${b.xp} XP</span>
+      </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;padding-top:10px;font-weight:700">
+        <span style="color:var(--txt)">Totale</span>
+        <span style="color:var(--grn);font-size:16px">${xp} XP</span>
+      </div>
+    </div>
+
+    <!-- Legenda XP guadagnati -->
+    <div class="card">
+      <div style="font-size:10px;color:var(--mut);letter-spacing:2px;margin-bottom:10px">COME GUADAGNI XP</div>
+      ${[
+        ['Presenza','+'+XP_RULES.presenza,''],
+        ['Vittoria','+'+XP_RULES.vittoria,''],
+        ['Pareggio','+'+XP_RULES.pareggio,''],
+        ['MVP','+'+XP_RULES.mvp,'⭐'],
+        ['Gol ('+p.role+')','+'+{Attaccante:XP_RULES.golAttaccante,Centrocampista:XP_RULES.golCentrocampista,Difensore:XP_RULES.golDifensore,Portiere:XP_RULES.golPortiere}[p.role],'⚽'],
+        ...(p.role==='Portiere'?[
+          ['Gol subiti 0-2','+'+XP_RULES.golSubiti_02,'🧤'],
+          ['Gol subiti 3-4','+'+XP_RULES.golSubiti_34,'🧤'],
+          ['Gol subiti 5+','+'+XP_RULES.golSubiti_5,'🧤'],
+        ]:[]),
+        ['Autorete',''+XP_RULES.autorete,'🔴'],
+        ['Rigore fallito',''+XP_RULES.rigoreFallito,'❌'],
+      ].map(([l,v,e])=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1a2a1a;font-size:12px">
+        <span style="color:var(--mut)">${e} ${l}</span>
+        <span style="font-weight:700;color:${v.startsWith('-')?'#f87171':'var(--grn)'}">${v} XP</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
 function pgStats(){
   const sel=S.statsPlayer;
   const p=sel?S.players.find(x=>x.id===sel):null;
