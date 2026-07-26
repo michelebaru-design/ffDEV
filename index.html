@@ -1009,10 +1009,6 @@ function rosaList(){
         <div style="font-size:22px;flex-shrink:0">${RICON[p.role]}</div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:14px">${p.name}</div>
-          <div style="display:flex;gap:8px;margin-top:3px;font-size:11px;flex-wrap:wrap">
-            <span style="color:#fbbf24">Lv.${p.level} ${'★'.repeat(p.level)+'☆'.repeat(5-p.level)}</span>
-            <span style="color:#4ade80">F${'●'.repeat(p.forma)+'○'.repeat(5-p.forma)}</span>
-          </div>
           <div style="display:flex;gap:8px;margin-top:3px;font-size:11px;color:#6b7280;flex-wrap:wrap">
             <span>G:${p.G}</span><span>V:${p.V}</span><span>P:${p.P}</span><span>S:${p.S}</span>
             <span style="color:#fbbf24">⚽${p.GF}</span>${p.GS>0?`<span style="color:#60a5fa">🧤${p.GS}</span>`:''}
@@ -1880,14 +1876,14 @@ function playerMatchResults(playerId){
     const onA=m.teamA?.includes(playerId);
     const myS=onA?(m.scoreA||0):(m.scoreB||0);
     const oppS=onA?(m.scoreB||0):(m.scoreA||0);
-    acc.push(myS>oppS?'V':myS===oppS?'P':'S');
+    acc.push({r:myS>oppS?'V':myS===oppS?'P':'S',date:m.date||'',scoreA:m.scoreA,scoreB:m.scoreB});
     return acc;
   },[]);
 }
 function currentStreak(results){
   if(!results.length)return{type:null,count:0};
-  const type=results[0];let count=0;
-  for(const r of results){if(r===type)count++;else break;}
+  const type=results[0].r;let count=0;
+  for(const r of results){if(r.r===type)count++;else break;}
   return{type,count};
 }
 
@@ -2076,7 +2072,7 @@ function pgStats(){
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:20px;font-weight:900;letter-spacing:1px">${p.name.toUpperCase()}</div>
-        <div style="font-size:11px;font-weight:700;color:${col};margin-top:2px">${p.role.toUpperCase()} · Lv.${'★'.repeat(p.level)+'☆'.repeat(5-p.level)}</div>
+        <div style="font-size:11px;font-weight:700;color:${col};margin-top:2px">${p.role.toUpperCase()}</div>
         ${streakLabel?`<div style="font-size:12px;color:#fbbf24;margin-top:4px">${streakLabel}</div>`:''}
       </div>
       <div style="text-align:center;flex-shrink:0">
@@ -2105,9 +2101,16 @@ function pgStats(){
     <!-- Ultimi 5 risultati -->
     ${last5.length>0?`<div class="card">
       <div style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:10px">ULTIMI ${last5.length} RISULTATI</div>
-      <div style="font-size:9px;color:#6b7280;letter-spacing:.5px;margin-bottom:6px;text-align:right">← più vecchio · più recente →</div>
-      <div style="display:flex;gap:8px">
-        ${[...last5].reverse().map(r=>{const c=r==='V'?'#16a34a':r==='P'?'#374151':'#dc2626';return`<div style="flex:1;text-align:center;padding:10px 4px;background:${c};border-radius:8px;font-size:16px;font-weight:900">${r}</div>`;}).join('')}
+      <div style="font-size:9px;color:#6b7280;letter-spacing:.5px;margin-bottom:8px;text-align:right">← più vecchio · più recente →</div>
+      <div style="display:flex;gap:6px">
+        ${[...last5].reverse().map(obj=>{
+          const c=obj.r==='V'?'var(--grn2)':obj.r==='P'?'#374151':'#dc2626';
+          const dd=obj.date?obj.date.substring(0,5):'';
+          return`<div style="flex:1;text-align:center">
+            <div style="padding:10px 4px;background:${c};border-radius:8px;font-size:18px;font-weight:900;color:#fff">${obj.r}</div>
+            ${dd?`<div style="font-size:9px;color:#6b7280;margin-top:3px">${dd}</div>`:''}
+          </div>`;
+        }).join('')}
       </div>
     </div>`:''}
 
