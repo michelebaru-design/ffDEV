@@ -638,6 +638,20 @@ function matchScorers(m){
     }).filter(Boolean);
 }
 
+function matchEvents(m){
+  // Restituisce eventi speciali: autoreti, rigori falliti, parate decisive
+  if(!m||!m.ratings)return[];
+  const events=[];
+  Object.entries(m.ratings).forEach(([id,r])=>{
+    const p=S.players.find(x=>x.id===id);
+    if(!p)return;
+    if(r.ownGoals>0)events.push(`🔴 ${p.name}${r.ownGoals>1?' ×'+r.ownGoals:''} (autorete)`);
+    if(r.penMiss>0)events.push(`❌ ${p.name}${r.penMiss>1?' ×'+r.penMiss:''} (rig. fallito)`);
+    if(r.saveDec>0)events.push(`🧤 ${p.name} (parata dec.)`);
+  });
+  return events;
+}
+
 /* ─── FIGURINE ──────────────────────────────────────────────── */
 
 /* Converte nome giocatore in nome file immagine
@@ -1464,11 +1478,81 @@ function pgResult(){
         </div>
       </div>`;
     }).join('');}).join('')}
+
+  <!-- EVENTI SPECIALI -->
+  <div style="margin-top:14px;margin-bottom:6px">
+    <div style="font-weight:700;color:#d1d5db;margin-bottom:8px">⚡ Eventi speciali</div>
+
+    <!-- AUTORETE -->
+    <div class="card" style="padding:12px;margin-bottom:6px">
+      <div style="font-size:11px;color:#f87171;font-weight:700;letter-spacing:1px;margin-bottom:8px">🔴 AUTORETI</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+        ${confP.map(p=>{
+          const n=S.pRatings[p.id]?.ownGoals||0;
+          return `<button onclick="adjEvent('${p.id}','ownGoals',1)"
+            style="padding:5px 10px;border-radius:99px;border:1px solid ${n>0?'#dc2626':'#374151'};
+            background:${n>0?'#2a0d0d':'transparent'};color:${n>0?'#f87171':'#9ca3af'};
+            font-size:11px;font-weight:600;cursor:pointer">
+            ${p.name}${n>0?' ('+n+')':''}
+          </button>`;
+        }).join('')}
+      </div>
+      <div style="font-size:10px;color:#6b7280">Tocca il giocatore per aggiungere un'autorete. Tocca di nuovo per rimuoverla.</div>
+    </div>
+
+    <!-- RIGORI FALLITI -->
+    <div class="card" style="padding:12px;margin-bottom:6px">
+      <div style="font-size:11px;color:#f87171;font-weight:700;letter-spacing:1px;margin-bottom:8px">❌ RIGORI FALLITI</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+        ${confP.map(p=>{
+          const n=S.pRatings[p.id]?.penMiss||0;
+          return `<button onclick="adjEvent('${p.id}','penMiss',1)"
+            style="padding:5px 10px;border-radius:99px;border:1px solid ${n>0?'#dc2626':'#374151'};
+            background:${n>0?'#2a0d0d':'transparent'};color:${n>0?'#f87171':'#9ca3af'};
+            font-size:11px;font-weight:600;cursor:pointer">
+            ${p.name}${n>0?' ('+n+')':''}
+          </button>`;
+        }).join('')}
+      </div>
+      <div style="font-size:10px;color:#6b7280">Tocca il giocatore per aggiungere un rigore fallito.</div>
+    </div>
+
+    <!-- PARATA DECISIVA — solo portieri -->
+    <div class="card" style="padding:12px;margin-bottom:6px">
+      <div style="font-size:11px;color:#60a5fa;font-weight:700;letter-spacing:1px;margin-bottom:8px">🧤 PARATA DECISIVA</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+        ${confP.filter(p=>p.role==='Portiere').map(p=>{
+          const n=S.pRatings[p.id]?.saveDec||0;
+          return `<button onclick="adjEvent('${p.id}','saveDec',1)"
+            style="padding:5px 10px;border-radius:99px;border:1px solid ${n>0?'#2563eb':'#374151'};
+            background:${n>0?'#0d1f3a':'transparent'};color:${n>0?'#60a5fa':'#9ca3af'};
+            font-size:11px;font-weight:600;cursor:pointer">
+            ${p.name}${n>0?' ✓':''}
+          </button>`;
+        }).join('')}
+      </div>
+      <div style="font-size:10px;color:#6b7280">Una parata decisiva per partita per portiere. Tocca per assegnare/togliere.</div>
+    </div>
+  </div>
+
   <button id="save-btn" class="btn bg bfw" onclick="saveResult()" style="padding:14px;font-size:15px;margin-top:6px">
     ${S.loading==='chronicle'?'<span class="spin">🔄</span> AI sta scrivendo...':'📰 Salva e genera cronaca'}
   </button>
 </div>`;}
 
+function adjEvent(id,field,d){
+  if(!S.pRatings[id])S.pRatings[id]={goals:0};
+  const cur=S.pRatings[id][field]||0;
+  // Toggle: se già ha 1 valore, rimuove; altrimenti aggiunge
+  // Per ownGoals e penMiss può essere multiplo
+  // Per saveDec massimo 1
+  if(field==='saveDec'){
+    S.pRatings[id][field]=cur>0?0:1;
+  }else{
+    S.pRatings[id][field]=Math.max(0,cur+d);
+  }
+  render();
+}
 function adjScore(k,d){S.pScore[k]=Math.max(0,(S.pScore[k]||0)+d);const el=document.getElementById('score-'+k);if(el)el.textContent=S.pScore[k];}
 function adjGoals(id,d){
   if(!S.pRatings[id])S.pRatings[id]={goals:0};
@@ -1774,7 +1858,7 @@ function pgGiornale(){
     <div style="border-top:3px double #E30613;padding-top:12px">
       <div class="gz-head" style="font-size:15px;color:#1a1a1a;margin-bottom:10px">🏆 TUTTI I RISULTATI (${S.matches.length})</div>
       ${S.matches.length===0?`<div style="font-size:13px;color:#999;font-style:italic;font-family:-apple-system,sans-serif">Nessuna partita ancora!</div>`:
-      S.matches.map(m=>{const sc=matchScorers(m);return `<div style="padding:8px 0;border-bottom:1px dotted #d0a8a0;font-family:-apple-system,sans-serif">
+      S.matches.map(m=>{const sc=matchScorers(m);const ev=matchEvents(m);return `<div style="padding:8px 0;border-bottom:1px dotted #d0a8a0;font-family:-apple-system,sans-serif">
         <div style="display:flex;align-items:center;gap:8px">
           <div style="flex:1"><span style="font-size:12px;color:#5a2020">${m.date}</span>
             ${m.mvpName?`<span style="font-size:10px;color:#E30613;margin-left:6px">⭐ ${m.mvpName}</span>`:''}</div>
@@ -1784,6 +1868,7 @@ function pgGiornale(){
           <button onclick="deleteMatch('${m.id}')" style="background:none;border:none;color:#999;font-size:15px;cursor:pointer;padding:2px 3px">🗑️</button>`:''}
         </div>
         ${sc.length>0?`<div style="font-size:11px;color:#8b1a1a;margin-top:3px;font-weight:600">⚽ ${sc.join(' · ')}</div>`:''}
+        ${ev.length>0?`<div style="font-size:11px;color:#8b1a1a;margin-top:2px">${ev.join(' · ')}</div>`:''}
       </div>`;}).join('')}
     </div>
   </div>
