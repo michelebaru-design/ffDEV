@@ -668,7 +668,7 @@ function pgFigurine(){
   const RCOL={Portiere:'#60a5fa',Difensore:'#4ade80',Centrocampista:'#fbbf24',Attaccante:'#f87171'};
   const RICO={Portiere:'🧤',Difensore:'🛡️',Centrocampista:'⚙️',Attaccante:'⚡'};
   const ROLES=['Portiere','Difensore','Centrocampista','Attaccante'];
-  const list=(f==='all'?S.players:S.players.filter(p=>p.role===f)).filter(p=>p.hasCard!==false&&!p.inactive);
+  const list=(f==='all'?S.players:S.players.filter(p=>p.role===f)).filter(p=>p.hasCard===true&&!p.inactive);
 
   /* Fullscreen modal */
   const modal=S.figFullscreen?(()=>{
@@ -1193,7 +1193,9 @@ function savePlayer(){
   S.editP.name=n;
   ['G','V','P','S','GF'].forEach(k=>S.editP[k]=Math.max(0,+document.getElementById('pe-'+k).value||0));
   S.editP.note=document.getElementById('pe-note').value||'';
-  if(typeof S.editP.hasCard==='undefined')S.editP.hasCard=true;
+  // hasCard viene già aggiornato dal toggle nel modal
+  // Se non impostato (giocatore vecchio senza campo), default false
+  if(typeof S.editP.hasCard==='undefined')S.editP.hasCard=false;
   S.players=S.players.find(x=>x.id===S.editP.id)?S.players.map(x=>x.id===S.editP.id?{...S.editP}:x):[...S.players,{...S.editP}];
   savePl();S.editP=null;render();
 }
