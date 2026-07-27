@@ -1543,14 +1543,8 @@ function pgResult(){
 function adjEvent(id,field,d){
   if(!S.pRatings[id])S.pRatings[id]={goals:0};
   const cur=S.pRatings[id][field]||0;
-  // Toggle: se già ha 1 valore, rimuove; altrimenti aggiunge
-  // Per ownGoals e penMiss può essere multiplo
-  // Per saveDec massimo 1
-  if(field==='saveDec'){
-    S.pRatings[id][field]=cur>0?0:1;
-  }else{
-    S.pRatings[id][field]=Math.max(0,cur+d);
-  }
+  // Toggle on/off per tutti i tipi
+  S.pRatings[id][field]=cur>0?0:1;
   render();
 }
 function adjScore(k,d){S.pScore[k]=Math.max(0,(S.pScore[k]||0)+d);const el=document.getElementById('score-'+k);if(el)el.textContent=S.pScore[k];}
