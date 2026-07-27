@@ -1155,7 +1155,7 @@ function rosaList(){
             </div>
             <div style="display:flex;gap:8px;margin-top:3px;font-size:11px;color:#6b7280;flex-wrap:wrap">
               <span>G:${p.G}</span><span>V:${p.V}</span><span>P:${p.P}</span><span>S:${p.S}</span>
-              <span style="color:#fbbf24">⚽${p.GF}</span>${p.GS>0?`<span style="color:#60a5fa">🧤${p.GS}</span>`:''}
+              <span style="color:#fbbf24">⚽${p.GF}</span>
               ${p.note?`<span style="color:var(--mut);font-style:italic">${p.note}</span>`:''}
             </div>
           </div>
@@ -1219,7 +1219,7 @@ function modalPlayer(){const p=S.editP;return `<div class="ov" onclick="if(event
       <div style="background:#0a0f1a;border-radius:8px;padding:10px">
         <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;letter-spacing:1px">STATISTICHE STORICHE</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-          ${[['G','Partite'],['V','Vittorie'],['P','Pareggi'],['S','Sconfitte'],['GF','Gol Fatti'],['GS','Gol Sal.']].map(([k,l])=>`
+          ${[['G','Partite'],['V','Vittorie'],['P','Pareggi'],['S','Sconfitte'],['GF','Gol Fatti']].map(([k,l])=>`
           <div><label style="font-size:10px;color:#6b7280;display:block;margin-bottom:2px">${l}</label>
             <input id="pe-${k}" type="number" min="0" inputmode="numeric" class="inp" style="padding:5px 8px;font-size:13px" value="${p[k]||0}"/></div>`).join('')}
         </div>
