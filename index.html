@@ -974,6 +974,7 @@ function pgHome(){
   const ph=S.match?.phase;
   const cc=S.match?Object.values(S.match.players).filter(x=>x==='confirmed').length:0;
   const lmSc=lm?matchScorers(lm):[];
+  const lmEv=lm?matchEvents(lm).filter(e=>e.includes('autorete')):[];
   const topS=[...S.players].sort((a,b)=>b.GF-a.GF).filter(p=>p.GF>0).slice(0,3);
 
   return `<div style="max-width:640px;margin:0 auto">
@@ -1046,6 +1047,7 @@ function pgHome(){
       </div>
       ${lm.mvpName?`<div style="text-align:center;color:var(--yel);font-size:13px;font-weight:600;margin-bottom:6px">⭐ MVP: ${lm.mvpName}</div>`:''}
       ${lmSc.length>0?`<div style="font-size:12px;color:var(--mut);text-align:center">⚽ ${lmSc.join(' · ')}</div>`:''}
+      ${lmEv.length>0?`<div style="font-size:12px;color:#f87171;text-align:center;margin-top:4px">${lmEv.join(' · ')}</div>`:''}
     </div>`:''}
 
     <!-- CLASSIFICHE -->
