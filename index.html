@@ -1284,7 +1284,7 @@ function pgConvoca(){
     return `<div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:10px;margin-bottom:5px">
       <span style="font-size:20px;flex-shrink:0">${RICON[p.role]}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${p.name}</div>
-        <div style="font-size:11px;color:#9ca3af">${p.role} • Lv.${p.level}</div></div>
+        <div style="font-size:11px;color:#9ca3af">${p.role}</div></div>
       <button class="bdg ${cfg.c}" onclick="toggleAtt('${p.id}')"
         style="padding:4px 10px;font-size:12px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0">${cfg.l}</button>
     </div>`;}).join('')}
@@ -1335,7 +1335,7 @@ function swapUI(){
         background:${isSel?'#1a1200':canSwap?'#0a2a1a':'#0d1117'}">
       <span style="font-size:15px">${RICON[p.role]}</span>
       <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">${p.name}</div>
-        <div style="font-size:10px;color:#9ca3af">${p.role.substring(0,3)} Lv.${p.level}</div></div>
+        <div style="font-size:10px;color:#9ca3af">${p.role.substring(0,3)}</div></div>
       ${!sw?`<button onclick="event.stopPropagation();selectSwap('${p.id}')" style="font-size:9px;padding:2px 7px;background:#374151;border:none;border-radius:4px;color:#d1d5db;cursor:pointer">↔</button>`:''}
       ${canSwap?`<span style="color:#4ade80;font-size:11px;font-weight:700">↔</span>`:''}
       ${isSel?`<span style="color:#fbbf24">📌</span>`:''}
@@ -1392,7 +1392,7 @@ function pgTeams(){
     ${team.map(p=>`<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
       <span style="font-size:16px">${RICON[p.role]}</span>
       <div><div style="font-size:12px;font-weight:600">${p.name}</div>
-        <div style="font-size:10px;color:#9ca3af">${p.role} • Lv.${p.level}</div></div>
+        <div style="font-size:10px;color:#9ca3af">${p.role}</div></div>
     </div>`).join('')}</div>`;
   return `<div style="max-width:640px;margin:0 auto">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
