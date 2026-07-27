@@ -533,7 +533,8 @@ let S={tab:'home',players:[],matches:[],match:null,
   showSeasonDetail:null, /* stagione aperta nell'archivio */
   figFilter:'all',    /* filtro ruolo nella galleria figurine */
   figFullscreen:null, /* id giocatore in fullscreen figurine */
-  rpgPlayer:null      /* giocatore selezionato nel tab RPG */
+  rpgPlayer:null,     /* giocatore selezionato nel tab RPG */
+  rosaFilter:'all'    /* filtro rosa: all | inactive */
 };
 
 /* ═══════════════════════════════════════
@@ -667,7 +668,7 @@ function pgFigurine(){
   const RCOL={Portiere:'#60a5fa',Difensore:'#4ade80',Centrocampista:'#fbbf24',Attaccante:'#f87171'};
   const RICO={Portiere:'🧤',Difensore:'🛡️',Centrocampista:'⚙️',Attaccante:'⚡'};
   const ROLES=['Portiere','Difensore','Centrocampista','Attaccante'];
-  const list=f==='all'?S.players:S.players.filter(p=>p.role===f);
+  const list=(f==='all'?S.players:S.players.filter(p=>p.role===f)).filter(p=>p.hasCard!==false&&!p.inactive);
 
   /* Fullscreen modal */
   const modal=S.figFullscreen?(()=>{
@@ -1109,37 +1110,64 @@ async function refreshData(){
    ROSA
 ═══════════════════════════════════════ */
 function pgRosa(){return `<div style="max-width:640px;margin:0 auto">
-  <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center">
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
     <input class="inp" style="flex:1" placeholder="🔍 Cerca..." value="${S.pFilter}"
       oninput="S.pFilter=this.value;document.getElementById('plist').innerHTML=rosaList()"/>
-    ${S.captainMode?`<button class="btn bg bsm" onclick="go('nuovo')">➕ Nuovo</button>`:''}
+    ${S.captainMode?`<button class="btn bg bsm" onclick="go('nuovo')">➕</button>`:''}
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button onclick="S.rosaFilter='all';document.getElementById('plist').innerHTML=rosaList()"
+      style="padding:4px 12px;border-radius:99px;border:none;font-size:11px;font-weight:600;cursor:pointer;
+      background:${S.rosaFilter!=='inactive'?'var(--grn2)':'var(--bg3)'};color:${S.rosaFilter!=='inactive'?'#fff':'var(--mut)'}">
+      👥 Attivi (${S.players.filter(p=>!p.inactive).length})</button>
+    <button onclick="S.rosaFilter='inactive';document.getElementById('plist').innerHTML=rosaList()"
+      style="padding:4px 12px;border-radius:99px;border:none;font-size:11px;font-weight:600;cursor:pointer;
+      background:${S.rosaFilter==='inactive'?'#374151':'var(--bg3)'};color:${S.rosaFilter==='inactive'?'#fff':'var(--mut)'}">
+      💤 Inattivi (${S.players.filter(p=>p.inactive).length})</button>
   </div>
   <div id="plist">${rosaList()}</div>
 </div>`;}
 
 function rosaList(){
   const fl=S.pFilter.toLowerCase();
-  const list=S.players.filter(p=>p.name.toLowerCase().includes(fl));
-  if(!list.length)return '<div class="muted" style="text-align:center;padding:2rem">Nessun giocatore</div>';
+  const showInactive=S.rosaFilter==='inactive';
+  const list=S.players.filter(p=>{
+    if(!p.name.toLowerCase().includes(fl))return false;
+    return showInactive?p.inactive:!p.inactive;
+  });
+  if(!list.length)return `<div class="muted" style="text-align:center;padding:2rem">${showInactive?'Nessun giocatore inattivo':'Nessun giocatore attivo'}</div>`;
   return ROLES.map(role=>{
     const ps=list.filter(p=>p.role===role);if(!ps.length)return'';
     return `<div style="margin-bottom:4px">
       <div style="font-size:11px;color:#9ca3af;letter-spacing:1px;margin-bottom:4px;padding:0 4px">${RICON[role]} ${role.toUpperCase()}</div>
-      ${ps.map(p=>`<div style="background:#111827;border:1px solid #1f2937;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:4px">
-        <div style="font-size:22px;flex-shrink:0">${RICON[p.role]}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px">${p.name}</div>
-          <div style="display:flex;gap:8px;margin-top:3px;font-size:11px;color:#6b7280;flex-wrap:wrap">
-            <span>G:${p.G}</span><span>V:${p.V}</span><span>P:${p.P}</span><span>S:${p.S}</span>
-            <span style="color:#fbbf24">⚽${p.GF}</span>${p.GS>0?`<span style="color:#60a5fa">🧤${p.GS}</span>`:''}
-            ${p.note?`<span style="color:#9ca3af;font-style:italic">${p.note}</span>`:''}
+      ${ps.map(p=>{
+        const ph=playerPhoto(p.name);
+        return `<div style="background:var(--bg2);border:1px solid ${p.inactive?'#2a1a1a':'#1e2a1e'};border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px;opacity:${p.inactive?'.6':'1'}">
+          <div style="width:42px;height:42px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid ${p.inactive?'#374151':'var(--grn3)'}">
+            <img src="cards/${ph}" style="width:100%;height:100%;object-fit:cover" onerror="this.hidden=true"/>
+            ${RICON[p.role]}
           </div>
-        </div>
-        <div style="display:flex;gap:2px;flex-shrink:0">
-          ${S.captainMode?`<button onclick="openEditP('${p.id}')" style="padding:6px;background:none;border:none;color:#60a5fa;font-size:16px">✏️</button>
-          <button onclick="delP('${p.id}')" style="padding:6px;background:none;border:none;color:#f87171;font-size:16px">🗑️</button>`:''}
-        </div>
-      </div>`).join('')}</div>`;}).join('');}
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="font-weight:700;font-size:14px">${p.name}</div>
+              ${p.inactive?'<span style="font-size:9px;background:#2a1a1a;color:#f87171;border-radius:99px;padding:1px 6px;font-weight:700">INATTIVO</span>':''}
+              ${!p.hasCard&&!p.inactive?'<span style="font-size:9px;background:var(--bg3);color:var(--mut);border-radius:99px;padding:1px 6px">no card</span>':''}
+            </div>
+            <div style="display:flex;gap:8px;margin-top:3px;font-size:11px;color:#6b7280;flex-wrap:wrap">
+              <span>G:${p.G}</span><span>V:${p.V}</span><span>P:${p.P}</span><span>S:${p.S}</span>
+              <span style="color:#fbbf24">⚽${p.GF}</span>${p.GS>0?`<span style="color:#60a5fa">🧤${p.GS}</span>`:''}
+              ${p.note?`<span style="color:var(--mut);font-style:italic">${p.note}</span>`:''}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;align-items:flex-end">
+            ${S.captainMode?`<button onclick="openEditP('${p.id}')" style="padding:5px;background:none;border:none;color:#60a5fa;font-size:16px">✏️</button>
+            ${p.inactive?
+              `<button onclick="toggleInactive('${p.id}')" style="padding:5px;background:none;border:none;color:var(--grn);font-size:13px;font-weight:700">✅</button>`:
+              `<button onclick="toggleInactive('${p.id}')" style="padding:5px;background:none;border:none;color:#f87171;font-size:13px;font-weight:700">💤</button>`
+            }`:''}
+          </div>
+        </div>`;
+      }).join('')}</div>`;}).join('');}
 
 function openEditP(id){S.editP={...S.players.find(p=>p.id===id)};render();}
 function delP(id){
@@ -1156,11 +1184,16 @@ function delP(id){
   savePl();render();
 }
 function closeModal(){S.editP=null;render();}
+function toggleInactive(id){
+  S.players=S.players.map(p=>p.id===id?{...p,inactive:!p.inactive}:p);
+  savePl();render();
+}
 function savePlayer(){
   const n=document.getElementById('pe-name').value.trim();if(!n){alert('Inserisci il nome');return;}
   S.editP.name=n;
   ['G','V','P','S','GF','GS'].forEach(k=>S.editP[k]=Math.max(0,+document.getElementById('pe-'+k).value||0));
   S.editP.note=document.getElementById('pe-note').value||'';
+  if(typeof S.editP.hasCard==='undefined')S.editP.hasCard=true;
   S.players=S.players.find(x=>x.id===S.editP.id)?S.players.map(x=>x.id===S.editP.id?{...S.editP}:x):[...S.players,{...S.editP}];
   savePl();S.editP=null;render();
 }
@@ -1182,12 +1215,7 @@ function modalPlayer(){const p=S.editP;return `<div class="ov" onclick="if(event
             style="display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:13px;
               border:1px solid ${p.role===r?'#16a34a':'#374151'};background:${p.role===r?'#052e16':'transparent'};color:${p.role===r?'#4ade80':'#9ca3af'}">
             ${RICON[r]} ${r}</button>`).join('')}</div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div><label style="font-size:12px;color:#9ca3af;display:block;margin-bottom:4px">Livello: <span id="pe-lvl-lbl" style="color:#fbbf24">${'★'.repeat(p.level)+'☆'.repeat(5-p.level)}</span></label>
-          <input type="range" min="1" max="5" value="${p.level}" oninput="updLevel(this.value)"/></div>
-        <div><label style="font-size:12px;color:#9ca3af;display:block;margin-bottom:4px">Forma: <span id="pe-forma-lbl" style="color:#4ade80">${'●'.repeat(p.forma)+'○'.repeat(5-p.forma)}</span></label>
-          <input type="range" min="1" max="5" value="${p.forma}" oninput="updForma(this.value)"/></div>
-      </div>
+
       <div style="background:#0a0f1a;border-radius:8px;padding:10px">
         <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;letter-spacing:1px">STATISTICHE STORICHE</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -1198,6 +1226,17 @@ function modalPlayer(){const p=S.editP;return `<div class="ov" onclick="if(event
       </div>
       <div><label style="font-size:12px;color:#9ca3af;display:block;margin-bottom:4px">Note</label>
         <input id="pe-note" class="inp" placeholder="Es. tiro potente..." value="${p.note||''}"/></div>
+      <div style="display:flex;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #1e2a1e">
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--mut);margin-bottom:2px">🃏 Ha la card fotografica</div>
+          <div style="font-size:11px;color:#4b5563">Disattiva per nasconderlo dalle Figurine</div>
+        </div>
+        <button onclick="S.editP.hasCard=!S.editP.hasCard;this.textContent=S.editP.hasCard?'✅ Sì':'❌ No'"
+          style="padding:6px 14px;border-radius:8px;border:1px solid #2a3a2a;background:transparent;
+          color:${p.hasCard!==false?'var(--grn)':'#f87171'};font-weight:700;font-size:13px;cursor:pointer">
+          ${p.hasCard!==false?'✅ Sì':'❌ No'}
+        </button>
+      </div>
     </div>
     <div style="display:flex;gap:8px;padding:0 16px 16px">
       <button class="btn br bfw" onclick="closeModal()">Annulla</button>
@@ -1222,12 +1261,7 @@ function pgNuovo(){npRole='Centrocampista';return `<div style="max-width:500px;m
             style="display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:13px;
               border:1px solid ${i===2?'#16a34a':'#374151'};background:${i===2?'#052e16':'transparent'};color:${i===2?'#4ade80':'#9ca3af'}">
             ${RICON[r]} ${r}</button>`).join('')}</div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div><label style="font-size:12px;color:#9ca3af;display:block;margin-bottom:4px">Livello: <span id="np-lvl-lbl" style="color:#fbbf24">★★★☆☆</span></label>
-          <input type="range" min="1" max="5" value="3" id="np-level" oninput="document.getElementById('np-lvl-lbl').textContent='★'.repeat(+this.value)+'☆'.repeat(5-+this.value)"/></div>
-        <div><label style="font-size:12px;color:#9ca3af;display:block;margin-bottom:4px">Forma: <span id="np-forma-lbl" style="color:#4ade80">●●●○○</span></label>
-          <input type="range" min="1" max="5" value="3" id="np-forma" oninput="document.getElementById('np-forma-lbl').textContent='●'.repeat(+this.value)+'○'.repeat(5-+this.value)"/></div>
-      </div>
+
       <div><label style="font-size:12px;color:#9ca3af;display:block;margin-bottom:4px">Note</label>
         <input id="np-note" class="inp" placeholder="Es. tiro potente..."/></div>
     </div>
@@ -1237,8 +1271,8 @@ function pgNuovo(){npRole='Centrocampista';return `<div style="max-width:500px;m
 function npSetRole(btn,r){npRole=r;document.querySelectorAll('#np-roles button').forEach(b=>{const s=b.dataset.r===r;b.style.background=s?'#052e16':'transparent';b.style.color=s?'#4ade80':'#9ca3af';b.style.border=`1px solid ${s?'#16a34a':'#374151'}`;});}
 function addNewPlayer(){
   const n=document.getElementById('np-name').value.trim();if(!n){alert('Inserisci il nome');return;}
-  S.players.push({id:uid(),name:n,role:npRole,level:+document.getElementById('np-level').value,
-    forma:+document.getElementById('np-forma').value,G:0,V:0,P:0,S:0,GF:0,GS:0,note:document.getElementById('np-note').value});
+  S.players.push({id:uid(),name:n,role:npRole,level:3,
+    forma:3,G:0,V:0,P:0,S:0,GF:0,GS:0,note:document.getElementById('np-note').value,hasCard:false,inactive:false});
   savePl();alert(`✅ ${n} aggiunto!`);go('rosa');
 }
 
@@ -1806,7 +1840,7 @@ function pgGiornale(){
   const topS=[...S.players].sort((a,b)=>b.GF-a.GF).filter(p=>p.GF>0);
   const topV=[...S.players].sort((a,b)=>b.V-a.V).filter(p=>p.V>0);
   const topG=[...S.players].sort((a,b)=>b.G-a.G).filter(p=>p.G>0);
-  const mpPlayers=[...S.players].filter(p=>p.G>=10).sort((a,b)=>calcMediaP(b)-calcMediaP(a));
+  const mpPlayers=[...S.players].filter(p=>p.G>=20).sort((a,b)=>calcMediaP(b)-calcMediaP(a));
   const lm=S.matches[0];const tg=S.players.reduce((s,p)=>s+p.GF,0);
   const today=new Date().toLocaleDateString('it-IT',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   return `<div class="gz-bg">
