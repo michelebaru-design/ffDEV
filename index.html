@@ -1900,7 +1900,7 @@ function pgGiornale(){
     </div>
     <div style="margin-bottom:16px;border-top:3px double #E30613;padding-top:12px">
       <div class="gz-head gz-red" style="font-size:clamp(15px,5vw,20px);border-bottom:3px solid #E30613;padding-bottom:4px;margin-bottom:8px">📊 CLASSIFICA MEDIA PUNTI</div>
-      <div style="font-size:10px;color:#888;font-family:-apple-system,sans-serif;margin-bottom:6px">Formula: (V×3 + P) / Presenze • Min. 10 partite</div>
+      <div style="font-size:10px;color:#888;font-family:-apple-system,sans-serif;margin-bottom:6px">Formula: (V×3 + P) / Presenze • Min. 20 partite</div>
       ${mpPlayers.length>0?`<table style="width:100%;border-collapse:collapse;font-family:-apple-system,sans-serif">
         <thead><tr style="background:#E30613;color:white;font-size:10px;letter-spacing:1px">
           <th style="padding:5px 4px;text-align:center;width:28px">#</th><th style="padding:5px 8px;text-align:left">GIOCATORE</th>
@@ -1920,7 +1920,7 @@ function pgGiornale(){
             <td style="padding:5px 4px;text-align:center;font-size:12px;color:#dc2626">${p.S}</td>
             <td style="padding:5px 4px;text-align:center;font-weight:700;font-size:${g?17:14}px;color:${g?'#E30613':'#1a1a1a'}">${mp.toFixed(3)}</td>
           </tr>`;}).join('')}</tbody>
-      </table>`:`<div style="padding:.5rem 0;text-align:center;color:#999;font-size:13px;font-style:italic">Min. 10 partite per entrare in classifica</div>`}
+      </table>`:`<div style="padding:.5rem 0;text-align:center;color:#999;font-size:13px;font-style:italic">Min. 20 partite per entrare in classifica</div>`}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;border-top:3px double #E30613;padding-top:12px;margin-bottom:16px">
       <div>
@@ -2190,8 +2190,8 @@ function pgGloria(){
   const ta=[...S.players].sort((a,b)=>b.G-a.G)[0];
   if(ta?.G>0)gloria.push({e:'📅',t:'<b>'+ta.name+'</b> è il più presente: '+ta.G+' partite'});
 
-  // Best media punti (min 5 partite)
-  const mp=[...S.players].filter(p=>p.G>=5).sort((a,b)=>calcMediaP(b)-calcMediaP(a))[0];
+  // Best media punti (min 20 partite)
+  const mp=[...S.players].filter(p=>p.G>=20).sort((a,b)=>calcMediaP(b)-calcMediaP(a))[0];
   if(mp)gloria.push({e:'📊',t:'<b>'+mp.name+'</b> ha la miglior media punti: '+calcMediaP(mp).toFixed(3)});
 
   // MVP più volte
@@ -2578,7 +2578,7 @@ function pgStats(){
   const maxG=Math.max(...S.players.map(x=>x.G),1);
   const maxV=Math.max(...S.players.map(x=>x.V),1);
   const maxGF=Math.max(...S.players.map(x=>x.GF),1);
-  const maxMP=Math.max(...S.players.filter(x=>x.G>=5).map(x=>calcMediaP(x)),1);
+  const maxMP=Math.max(...S.players.filter(x=>x.G>=20).map(x=>calcMediaP(x)),1);
 
   function bar(label,val,maxVal,color){
     const pct=maxVal>0?Math.round((val/maxVal)*100):0;
@@ -2627,7 +2627,7 @@ function pgStats(){
       ${bar('🏆 Vittorie',p.V,maxV,'#4ade80')}
       ${bar('⚽ Gol',p.GF,maxGF,'#f59e0b')}
       ${p.role==='Portiere'?bar('🧤 Gol Salvati',p.GS,Math.max(...S.players.map(x=>x.GS),1),'#a78bfa'):''}
-      ${p.G>=5?bar('📊 Media Punti',+mp.toFixed(3),+maxMP.toFixed(3),'#f87171'):''}
+      ${p.G>=20?bar('📊 Media Punti',+mp.toFixed(3),+maxMP.toFixed(3),'#f87171'):''}
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid #1f2937">
         ${[['G',p.G,'Partite','#60a5fa'],['V',p.V,'Vittorie','#4ade80'],['P',p.P,'Pareggi','#9ca3af'],['S',p.S,'Sconfitte','#f87171']].map(([l,v,n,c])=>`
           <div style="text-align:center;background:#0a0f1a;border-radius:8px;padding:8px 4px">
