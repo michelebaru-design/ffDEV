@@ -787,8 +787,15 @@ function startNewSeason(){
     topWins:[...S.players].sort((a,b)=>b.V-a.V)[0]?.name||'',
     topPresenze:[...S.players].sort((a,b)=>b.G-a.G)[0]?.name||'',
   });
-  /* Reset statistiche per nuova stagione */
-  S.players=S.players.map(p=>({...p,G:0,V:0,P:0,S:0,GF:0,GS:0}));
+  /* Salva carryXP storico per bilanciamento AI nuova stagione
+     (non si azzera mai — tiene memoria storica del valore del giocatore) */
+  S.players=S.players.map(p=>{
+    const xpOld=calcPlayerXP(p.id);
+    const carryOld=p.carryXP||0;
+    // Media pesata: 60% stagione appena finita + 40% storico precedente
+    const newCarry=Math.round(xpOld*0.6+carryOld*0.4);
+    return {...p,G:0,V:0,P:0,S:0,GF:0,GS:0,carryXP:newCarry};
+  });
   S.matches=[];S.match=null;
   S.seasonName=new Date().getFullYear().toString();
   localStorage.setItem('ff_seasons',JSON.stringify(S.seasons));
@@ -1411,17 +1418,51 @@ async function genTeams(){
   const conf=Object.entries(S.match.players).filter(([,s])=>s==='confirmed').map(([id])=>id);
   const confP=S.players.filter(p=>conf.includes(p.id));const n=confP.length,half=Math.floor(n/2);
   try{
-    const info=confP.map(p=>({id:p.id,name:p.name,role:p.role,level:p.level,forma:p.forma}));
+    // Calcola dati avanzati per ogni giocatore
+    const info=confP.map(p=>{
+      const xpStagione=calcPlayerXP(p.id);
+      // Se stagione appena iniziata (pochi dati), usa carryXP storico per bilanciamento
+      const xpBilancio=xpStagione>0?xpStagione:(p.carryXP||0);
+      const lv=getLevelInfo(xpBilancio);
+      const res=playerMatchResults(p.id).slice(0,3);
+      const forma=res.map(r=>r.r).join('');
+      const media=calcMediaP(p);
+      return {
+        id:p.id,
+        name:p.name,
+        role:p.role,
+        xp:xpBilancio,
+        xpStagione:xpStagione,
+        carryXP:p.carryXP||0,
+        level:lv.lv,
+        levelName:lv.name,
+        media:media.toFixed(3),
+        forma:forma||'---',
+        G:p.G,V:p.V,GF:p.GF
+      };
+    });
+    const nuovaStagione=confP.every(p=>p.G<=3); // stagione appena iniziata
+    const totalXP=info.reduce((s,p)=>s+p.xp,0);
+    const targetXP=Math.round(totalXP/2);
+
     const txt=await ai(
-      `Dividi TUTTI questi ${n} giocatori in DUE SQUADRE BILANCIATE.\n`+
-      `REGOLA: teamA ESATTAMENTE ${half} ID, teamB ESATTAMENTE ${n-half} ID. Nessun duplicato.\n`+
-      `Giocatori: ${JSON.stringify(info)}\n`+
-      `Rispondi SOLO JSON valido:\n{"teamA":[...${half} id],"teamB":[...${n-half} id],"explanation":"anti-polemica 2-3 frasi"}`,''
+      `Dividi TUTTI questi ${n} giocatori in DUE SQUADRE BILANCIATE per una partita di calcetto.\n`+
+      `REGOLA ASSOLUTA: teamA ESATTAMENTE ${half} ID, teamB ESATTAMENTE ${n-half} ID. Nessun duplicato.\n\n`+
+      (nuovaStagione?`NOTA: Stagione appena iniziata. Usa carryXP (storico stagioni precedenti) per valutare la forza dei giocatori.\n\n`:'')+
+      `CRITERI DI BILANCIAMENTO (in ordine di priorità):\n`+
+      `1. XP (peso 40%): target ${targetXP} XP per squadra${nuovaStagione?' — usa campo carryXP':''}\n`+
+      `2. RUOLI (peso 30%): ogni squadra deve avere almeno 1 portiere e ruoli bilanciati\n`+
+      `3. FORMA RECENTE (peso 20%): distribuisci chi è in forma (VVV) tra le due squadre\n`+
+      `4. MEDIA PUNTI (peso 10%): bilancia le medie complessive\n\n`+
+      `Giocatori disponibili:\n${JSON.stringify(info,null,2)}\n\n`+
+      `Rispondi SOLO con JSON valido:\n`+
+      `{"teamA":[...${half} id],"teamB":[...${n-half} id],"explanation":"spiegazione anti-polemica 2-3 frasi che cita XP e ruoli"}`,
+      'Sei un assistente per tornei di calcetto amatoriale. Bilancia le squadre usando XP, ruoli e forma recente. Rispondi solo con JSON valido senza markdown.'
     );
     const d=JSON.parse(txt.replace(/```json|```/g,'').trim());
     const [fixedA,fixedB]=fixTeams(d.teamA||[],d.teamB||[],conf);
     S.match.teamA=fixedA;S.match.teamB=fixedB;S.match.teamExpl=d.explanation||'';saveCm();
-  }catch(e){const [a,b]=balancedSplit(confP);S.match.teamA=a;S.match.teamB=b;S.match.teamExpl='Squadre create con algoritmo bilanciato.';saveCm();}
+  }catch(e){const [a,b]=balancedSplit(confP);S.match.teamA=a;S.match.teamB=b;S.match.teamExpl='Squadre create con algoritmo bilanciato (XP e ruoli).';saveCm();}
   S.loading='';document.getElementById('content').innerHTML=pgTeams();
 }
 function fixTeams(rawA,rawB,confIds){
@@ -1431,8 +1472,16 @@ function fixTeams(rawA,rawB,confIds){
   while(a.length>b.length+1)b.unshift(a.pop());while(b.length>a.length+1)a.unshift(b.pop());return [a,b];
 }
 function balancedSplit(players){
-  const a=[],b=[];ROLES.forEach(role=>{const ps=[...players.filter(p=>p.role===role)].sort((x,y)=>y.level-x.level);ps.forEach((p,i)=>(i%4===0||i%4===3)?a.push(p.id):b.push(p.id));});
-  while(a.length>b.length+1)b.unshift(a.pop());while(b.length>a.length+1)a.unshift(b.pop());return [a,b];
+  // Fallback senza AI — usa XP per bilanciare (serpentina per ruolo)
+  const a=[],b=[];
+  ROLES.forEach(role=>{
+    const ps=[...players.filter(p=>p.role===role)]
+      .sort((x,y)=>calcPlayerXP(y.id)-calcPlayerXP(x.id));
+    ps.forEach((p,i)=>(i%4===0||i%4===3)?a.push(p.id):b.push(p.id));
+  });
+  while(a.length>b.length+1)b.unshift(a.pop());
+  while(b.length>a.length+1)a.unshift(b.pop());
+  return [a,b];
 }
 function startResult(){S.match.phase='result';S.pScore={a:0,b:0};S.pRatings={};S.pMvp='';saveCm();render();}
 
