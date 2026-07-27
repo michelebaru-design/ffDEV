@@ -295,7 +295,7 @@ const BIANCHI='Bianchi',NERI='Neri';
    🎮 SISTEMA RPG — LIVELLI E XP
 ═══════════════════════════════════════ */
 const XP_TABLE=[
-  {lv:1,name:'Pivetto',    xp:0},
+  {lv:1,name:'Pivello',    xp:0},
   {lv:2,name:'Riserva',    xp:500},
   {lv:3,name:'Panchinaro', xp:1000},
   {lv:4,name:'Titolare',   xp:1800},
@@ -1908,7 +1908,7 @@ function pgGiornale(){
           <th style="padding:5px 4px;text-align:center">P</th><th style="padding:5px 4px;text-align:center">S</th>
           <th style="padding:5px 4px;text-align:center;background:#8b0000">MEDIA</th>
         </tr></thead>
-        <tbody>${mpPlayers.slice(0,15).map((p,i)=>{
+        <tbody>${mpPlayers.slice(0,20).map((p,i)=>{
           const mp=calcMediaP(p);const g=i===0,s=i===1,b=i===2;
           const rowBg=g?'#fff0ed':s?'#fdf5f4':b?'#fdf0ee':i%2===0?'#fdf8f7':'#f8e8e5';
           return `<tr style="background:${rowBg};border-bottom:1px solid #d4c9b5">
