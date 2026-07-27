@@ -1191,7 +1191,7 @@ function toggleInactive(id){
 function savePlayer(){
   const n=document.getElementById('pe-name').value.trim();if(!n){alert('Inserisci il nome');return;}
   S.editP.name=n;
-  ['G','V','P','S','GF','GS'].forEach(k=>S.editP[k]=Math.max(0,+document.getElementById('pe-'+k).value||0));
+  ['G','V','P','S','GF'].forEach(k=>S.editP[k]=Math.max(0,+document.getElementById('pe-'+k).value||0));
   S.editP.note=document.getElementById('pe-note').value||'';
   if(typeof S.editP.hasCard==='undefined')S.editP.hasCard=true;
   S.players=S.players.find(x=>x.id===S.editP.id)?S.players.map(x=>x.id===S.editP.id?{...S.editP}:x):[...S.players,{...S.editP}];
