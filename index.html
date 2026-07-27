@@ -1200,8 +1200,6 @@ function savePlayer(){
   savePl();S.editP=null;render();
 }
 function setRole(r){S.editP.role=r;document.querySelectorAll('.rbtn').forEach(b=>{const s=b.dataset.r===r;b.style.background=s?'#052e16':'transparent';b.style.color=s?'#4ade80':'#9ca3af';b.style.border=`1px solid ${s?'#16a34a':'#374151'}`;});}
-function updLevel(v){S.editP.level=+v;document.getElementById('pe-lvl-lbl').textContent='★'.repeat(+v)+'☆'.repeat(5-+v);}
-function updForma(v){S.editP.forma=+v;document.getElementById('pe-forma-lbl').textContent='●'.repeat(+v)+'○'.repeat(5-+v);}
 function modalPlayer(){const p=S.editP;return `<div class="ov" onclick="if(event.target===this)closeModal()">
   <div class="mod">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #1f2937">
