@@ -1445,27 +1445,49 @@ function pgResult(){
   <div style="font-weight:700;color:#d1d5db;margin-bottom:8px">⚽ Gol per giocatore</div>
   ${ROLES.map(r=>{const ps=confP.filter(p=>p.role===r);if(!ps.length)return'';
     return `<div style="font-size:11px;color:#9ca3af;margin:6px 0 3px">${RICON[r]} ${r.toUpperCase()}</div>`+
-    ps.map(p=>`<div class="card" style="padding:10px 12px;margin-bottom:4px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:18px">${RICON[p.role]}</span>
-      <div style="flex:1"><span style="font-weight:600;font-size:13px">${p.name}</span>
-        <span style="font-size:11px;color:#9ca3af;margin-left:6px">${S.match.teamA.includes(p.id)?'⚪'+BIANCHI:'⚫'+NERI}</span></div>
-      <button id="mvp-${p.id}" onclick="toggleMvp('${p.id}')"
-        style="font-size:11px;padding:3px 8px;border-radius:99px;border:none;cursor:pointer;font-weight:600;
-          background:${S.pMvp===p.id?'#713f12':'#1f2937'};color:${S.pMvp===p.id?'#fbbf24':'#6b7280'}">⭐ MVP</button>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <button onclick="adjGoals('${p.id}',-1)" style="font-size:18px;background:none;border:none;color:#9ca3af">−</button>
-        <span id="gv-${p.id}" style="font-weight:700;font-size:20px;width:24px;text-align:center">${S.pRatings[p.id]?.goals||0}</span>
-        <button onclick="adjGoals('${p.id}',1)" style="font-size:18px;background:none;border:none;color:#4ade80">+</button>
-      </div>
-    </div>`).join('');}).join('')}
+    ps.map(p=>{
+      const onA=S.match.teamA.includes(p.id);
+      const teamScore=onA?S.pScore.a:S.pScore.b;
+      const teamLabel=onA?'⚪'+BIANCHI:'⚫'+NERI;
+      const teamKey=onA?'a':'b';
+      const teamGoals=confP.filter(x=>S.match.teamA.includes(x.id)===onA).reduce((s,x)=>s+(S.pRatings[x.id]?.goals||0),0);
+      const canAdd=teamGoals<teamScore;
+      return `<div class="card" style="padding:10px 12px;margin-bottom:4px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:18px">${RICON[p.role]}</span>
+        <div style="flex:1"><span style="font-weight:600;font-size:13px">${p.name}</span>
+          <span style="font-size:11px;color:#9ca3af;margin-left:6px">${teamLabel}</span></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button onclick="adjGoals('${p.id}',-1)" style="font-size:18px;background:none;border:none;color:#9ca3af">−</button>
+          <span id="gv-${p.id}" style="font-weight:700;font-size:20px;width:24px;text-align:center">${S.pRatings[p.id]?.goals||0}</span>
+          <button onclick="adjGoalsChecked('${p.id}','${teamKey}')" style="font-size:18px;background:none;border:none;color:${canAdd?'#4ade80':'#374151'}"
+            ${canAdd?'':'title="Gol squadra al massimo"'}>+</button>
+        </div>
+      </div>`;
+    }).join('');}).join('')}
   <button id="save-btn" class="btn bg bfw" onclick="saveResult()" style="padding:14px;font-size:15px;margin-top:6px">
     ${S.loading==='chronicle'?'<span class="spin">🔄</span> AI sta scrivendo...':'📰 Salva e genera cronaca'}
   </button>
 </div>`;}
 
 function adjScore(k,d){S.pScore[k]=Math.max(0,(S.pScore[k]||0)+d);const el=document.getElementById('score-'+k);if(el)el.textContent=S.pScore[k];}
-function adjGoals(id,d){if(!S.pRatings[id])S.pRatings[id]={goals:0};S.pRatings[id].goals=Math.max(0,(S.pRatings[id].goals||0)+d);const el=document.getElementById('gv-'+id);if(el)el.textContent=S.pRatings[id].goals;}
-function toggleMvp(id){S.pMvp=S.pMvp===id?'':id;document.querySelectorAll('[id^="mvp-"]').forEach(b=>{const bid=b.id.replace('mvp-','');b.style.background=S.pMvp===bid?'#713f12':'#1f2937';b.style.color=S.pMvp===bid?'#fbbf24':'#6b7280';});}
+function adjGoals(id,d){
+  if(!S.pRatings[id])S.pRatings[id]={goals:0};
+  S.pRatings[id].goals=Math.max(0,(S.pRatings[id].goals||0)+d);
+  const el=document.getElementById('gv-'+id);if(el)el.textContent=S.pRatings[id].goals;
+  render(); // aggiorna colore + per tutta la squadra
+}
+function adjGoalsChecked(id,teamKey){
+  const conf=Object.entries(S.match.players).filter(([,s])=>s==='confirmed').map(([id])=>id);
+  const confP=S.players.filter(p=>conf.includes(p.id));
+  const onA=teamKey==='a';
+  const teamScore=onA?S.pScore.a:S.pScore.b;
+  const teamGoals=confP.filter(x=>S.match.teamA.includes(x.id)===onA).reduce((s,x)=>s+(S.pRatings[x.id]?.goals||0),0);
+  if(teamGoals>=teamScore){
+    // Feedback visivo — il + rimane grigio, nessuna azione
+    return;
+  }
+  adjGoals(id,1);
+}
 
 async function saveResult(){
   if(S.loading==='chronicle')return;S.loading='chronicle';
