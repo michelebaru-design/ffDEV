@@ -983,7 +983,7 @@ function pgHome(){
   const ph=S.match?.phase;
   const cc=S.match?Object.values(S.match.players).filter(x=>x==='confirmed').length:0;
   const lmSc=lm?matchScorers(lm):[];
-  const lmEv=lm?matchEvents(lm).filter(e=>e.includes('autorete')):[];
+  const lmEv=lm?matchEvents(lm):[];
   const topS=[...S.players].sort((a,b)=>b.GF-a.GF).filter(p=>p.GF>0).slice(0,3);
 
   return `<div style="max-width:640px;margin:0 auto">
@@ -1772,18 +1772,21 @@ function showLevelUpPopup(levelUps){
 
 function pgDone(){
   const scorers=matchScorers(S.match);
+  const events=matchEvents(S.match);
   return `<div style="max-width:640px;margin:0 auto">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
     <div style="font-weight:700;font-size:18px">📰 Cronaca</div>
     <div style="font-size:36px;font-weight:900">${S.match.scoreA} – ${S.match.scoreB}</div>
   </div>
   ${S.match.mvpName?`<div style="text-align:center;color:#fbbf24;font-weight:600;margin-bottom:8px">⭐ MVP: ${S.match.mvpName}</div>`:''}
-  ${scorers.length>0?`
+  ${scorers.length>0||events.length>0?`
   <div class="card" style="padding:10px 14px;border-color:#16a34a;margin-bottom:10px">
-    <div style="font-size:11px;font-weight:700;color:#4ade80;margin-bottom:8px;letter-spacing:1px">⚽ MARCATORI</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">
+    ${scorers.length>0?`<div style="font-size:11px;font-weight:700;color:#4ade80;margin-bottom:8px;letter-spacing:1px">⚽ MARCATORI</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${events.length>0?'10px':'0'}">
       ${scorers.map(s=>`<span style="background:#0a2a1a;border:1px solid #16a34a;border-radius:99px;padding:3px 12px;font-size:12px;font-weight:600;color:#4ade80">${s}</span>`).join('')}
-    </div>
+    </div>`:''}
+    ${events.length>0?`<div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:6px;letter-spacing:1px">⚡ EVENTI</div>
+    <div style="font-size:12px;color:#f87171">${events.join(' · ')}</div>`:''}
   </div>`:''}
   <button class="btn bgr bsm" onclick="S.editTeams=!S.editTeams;S.swapSel=null;document.getElementById('content').innerHTML=pgDone()" style="margin-bottom:10px">
     ✏️ ${S.editTeams?'Chiudi modifica':'Modifica squadre'}
