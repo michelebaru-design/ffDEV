@@ -667,7 +667,7 @@ function playerPhoto(name){
 function pgFigurine(){
   const f=S.figFilter||'all';
   const RCOL={Portiere:'#60a5fa',Difensore:'#4ade80',Centrocampista:'#fbbf24',Attaccante:'#f87171'};
-  const RICO={Portiere:'🧤',Difensore:'🛡️',Centrocampista:'⚙️',Attaccante:'⚡'};
+  const RICO={Portiere:'🧤',Difensore:'🛡️',Centrocampista:'⚙️',Attaccante:'⚡',Mister:'🎩'};
   const ROLES=['Portiere','Difensore','Centrocampista','Attaccante','Mister'];
   const list=(f==='all'?S.players:S.players.filter(p=>p.role===f)).filter(p=>p.hasCard===true&&!p.inactive);
 
@@ -1195,7 +1195,7 @@ function rosaList(){
             }`:''}
           </div>
         </div>`;
-      }).join('')}</div>`;}).join('');}
+      }).join('')}</div>`;}).join('')+staffSection;}
 
 function openEditP(id){S.editP={...S.players.find(p=>p.id===id)};render();}
 function delP(id){
@@ -1617,7 +1617,7 @@ function pgResult(){
             ${canAdd?'':'title="Gol squadra al massimo"'}>+</button>
         </div>
       </div>`;
-    }).join('')+staffSection;}).join('')}
+    }).join('');}).join('')}
 
   <!-- EVENTI SPECIALI -->
   <div style="margin-top:14px;margin-bottom:6px">
