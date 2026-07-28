@@ -476,8 +476,8 @@ async function npWritePublic(data){
 /* ═══════════════════════════════════════
    COSTANTI & DATI DEMO
 ═══════════════════════════════════════ */
-const ROLES=['Portiere','Difensore','Centrocampista','Attaccante'];
-const RICON={Portiere:'🧤',Difensore:'🛡️',Centrocampista:'⚙️',Attaccante:'⚡'};
+const ROLES=['Portiere','Difensore','Centrocampista','Attaccante','Mister'];
+const RICON={Portiere:'🧤',Difensore:'🛡️',Centrocampista:'⚙️',Attaccante:'⚡',Mister:'🎩'};
 const uid=()=>Math.random().toString(36).slice(2,9);
 function mkP(n,r,lv,f,G,V,P,Ss,GF,GS){return{id:uid(),name:n,role:r,level:lv,forma:f,G:G||0,V:V||0,P:P||0,S:Ss||0,GF:GF||0,GS:GS||0,note:''};}
 const SAMPLE=[
@@ -668,7 +668,7 @@ function pgFigurine(){
   const f=S.figFilter||'all';
   const RCOL={Portiere:'#60a5fa',Difensore:'#4ade80',Centrocampista:'#fbbf24',Attaccante:'#f87171'};
   const RICO={Portiere:'🧤',Difensore:'🛡️',Centrocampista:'⚙️',Attaccante:'⚡'};
-  const ROLES=['Portiere','Difensore','Centrocampista','Attaccante'];
+  const ROLES=['Portiere','Difensore','Centrocampista','Attaccante','Mister'];
   const list=(f==='all'?S.players:S.players.filter(p=>p.role===f)).filter(p=>p.hasCard===true&&!p.inactive);
 
   /* Fullscreen modal */
@@ -974,7 +974,7 @@ function exitCaptain(){S.captainMode=false;localStorage.removeItem('ff_captain')
    HOME
 ═══════════════════════════════════════ */
 function pgHome(){
-  const tg=S.players.reduce((s,p)=>s+p.GF,0);
+  const tg=S.players.filter(p=>p.role!=='Mister').reduce((s,p)=>s+p.GF,0);
   const ts=[...S.players].sort((a,b)=>b.GF-a.GF)[0];
   const tw=[...S.players].sort((a,b)=>b.V-a.V)[0];
   const ta=[...S.players].sort((a,b)=>b.G-a.G)[0];
@@ -1137,7 +1137,32 @@ function rosaList(){
     return showInactive?p.inactive:!p.inactive;
   });
   if(!list.length)return `<div class="muted" style="text-align:center;padding:2rem">${showInactive?'Nessun giocatore inattivo':'Nessun giocatore attivo'}</div>`;
-  return ROLES.map(role=>{
+// Mister appare in sezione separata in fondo
+  const mister=list.filter(p=>p.role==='Mister');
+  const staffSection=mister.length>0?`<div style="margin-bottom:4px">
+    <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:4px;padding:0 4px">🎩 STAFF TECNICO</div>
+    ${mister.map(p=>{
+      const ph=playerPhoto(p.name);
+      return `<div style="background:var(--bg2);border:1px solid #2a1a00;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div style="width:42px;height:42px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid #713f12">
+          <img src="cards/${ph}" style="width:100%;height:100%;object-fit:cover" onerror="this.hidden=true"/>
+          🎩
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-weight:700;font-size:14px">${p.name}</div>
+            <span style="font-size:10px;background:#1a1500;color:#fbbf24;border:1px solid #713f12;border-radius:99px;padding:1px 8px;font-weight:700">🎩 Mister</span>
+          </div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px">${p.note||'Staff tecnico'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+          ${S.captainMode?`<button onclick="openEditP('${p.id}')" style="padding:5px;background:none;border:none;color:#60a5fa;font-size:16px">✏️</button>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`:'';
+
+  return ROLES.filter(r=>r!=='Mister').map(role=>{
     const ps=list.filter(p=>p.role===role);if(!ps.length)return'';
     return `<div style="margin-bottom:4px">
       <div style="font-size:11px;color:#9ca3af;letter-spacing:1px;margin-bottom:4px;padding:0 4px">${RICON[role]} ${role.toUpperCase()}</div>
@@ -1152,8 +1177,9 @@ function rosaList(){
             <div style="display:flex;align-items:center;gap:6px">
               <div style="font-weight:700;font-size:14px">${p.name}</div>
               ${(()=>{const xp=calcPlayerXP(p.id);const li=getLevelInfo(xp);return li.lv>1||xp>0?`<span style="font-size:9px;background:#0d2a0d;color:var(--grn);border:1px solid var(--grn3);border-radius:99px;padding:1px 7px;font-weight:700;letter-spacing:.5px">Lv.${li.lv} ${li.name}</span>`:'';})()} 
-              ${p.inactive?'<span style="font-size:9px;background:#2a1a1a;color:#f87171;border-radius:99px;padding:1px 6px;font-weight:700">INATTIVO</span>':''}
-              ${!p.hasCard&&!p.inactive?'<span style="font-size:9px;background:var(--bg3);color:var(--mut);border-radius:99px;padding:1px 6px">no card</span>':''}
+              ${p.role==='Mister'?'<span style="font-size:10px;background:#1a1500;color:#fbbf24;border:1px solid #713f12;border-radius:99px;padding:1px 8px;font-weight:700">🎩 Mister</span>':''}
+              ${p.inactive&&p.role!=='Mister'?'<span style="font-size:9px;background:#2a1a1a;color:#f87171;border-radius:99px;padding:1px 6px;font-weight:700">INATTIVO</span>':''}
+              ${!p.hasCard&&!p.inactive&&p.role!=='Mister'?'<span style="font-size:9px;background:var(--bg3);color:var(--mut);border-radius:99px;padding:1px 6px">no card</span>':''}
             </div>
             <div style="display:flex;gap:8px;margin-top:3px;font-size:11px;color:#6b7280;flex-wrap:wrap">
               <span>G:${p.G}</span><span>V:${p.V}</span><span>P:${p.P}</span><span>S:${p.S}</span>
@@ -1591,7 +1617,7 @@ function pgResult(){
             ${canAdd?'':'title="Gol squadra al massimo"'}>+</button>
         </div>
       </div>`;
-    }).join('');}).join('')}
+    }).join('')+staffSection;}).join('')}
 
   <!-- EVENTI SPECIALI -->
   <div style="margin-top:14px;margin-bottom:6px">
@@ -1940,7 +1966,7 @@ function pgGiornale(){
   const topV=[...S.players].sort((a,b)=>b.V-a.V).filter(p=>p.V>0);
   const topG=[...S.players].sort((a,b)=>b.G-a.G).filter(p=>p.G>0);
   const mpPlayers=[...S.players].filter(p=>p.G>=20).sort((a,b)=>calcMediaP(b)-calcMediaP(a));
-  const lm=S.matches[0];const tg=S.players.reduce((s,p)=>s+p.GF,0);
+  const lm=S.matches[0];const tg=S.players.filter(p=>p.role!=='Mister').reduce((s,p)=>s+p.GF,0);
   const today=new Date().toLocaleDateString('it-IT',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   return `<div class="gz-bg">
   <div style="background:#E30613;padding:3px 0;text-align:center">
@@ -2395,7 +2421,7 @@ function pgRpg(){
 
   // Lista classifica XP
   const ranking=[...S.players]
-    .filter(p=>p.G>0||S.matches.some(m=>m.players?.[p.id]==='confirmed'))
+    .filter(p=>p.role!=='Mister'&&(p.G>0||S.matches.some(m=>m.players?.[p.id]==='confirmed')))
     .map(p=>({...p,xp:calcPlayerXP(p.id),lv:getLevelInfo(calcPlayerXP(p.id))}))
     .sort((a,b)=>b.xp-a.xp);
 
