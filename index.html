@@ -1481,8 +1481,11 @@ async function genTeams(){
     // Calcola dati avanzati per ogni giocatore
     const info=confP.map(p=>{
       const xpStagione=calcPlayerXP(p.id);
-      // Se stagione appena iniziata (pochi dati), usa carryXP storico per bilanciamento
-      const xpBilancio=xpStagione>0?xpStagione:(p.carryXP||0);
+    // Soglia dinamica: usa carryXP finché non ha giocato almeno 20% partite stagione
+    const partiteStagione=S.matches.length;
+    const soglia=Math.max(3,Math.round(partiteStagione*0.2));
+    const usaCarry=p.G<soglia&&(p.carryXP||0)>0;
+    const xpBilancio=usaCarry?(p.carryXP||0):xpStagione;
       const lv=getLevelInfo(xpBilancio);
       const res=playerMatchResults(p.id).slice(0,3);
       const forma=res.map(r=>r.r).join('');
@@ -1501,7 +1504,7 @@ async function genTeams(){
         G:p.G,V:p.V,GF:p.GF
       };
     });
-    const nuovaStagione=confP.every(p=>p.G<=3); // stagione appena iniziata
+    const nuovaStagione=confP.some(p=>p.G<Math.max(3,Math.round(S.matches.length*0.2))&&(p.carryXP||0)>0);
     const totalXP=info.reduce((s,p)=>s+p.xp,0);
     const targetXP=Math.round(totalXP/2);
 
