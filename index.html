@@ -1719,6 +1719,7 @@ function resetEvent(id,field){
     const p=S.players.find(x=>x.id===id);
     if(p)btn.textContent=p.name;
   }
+  if(field==='ownGoals')updateGoalButtons();
 }
 
 /* Long press su iPhone per azzerare eventi */
@@ -1771,6 +1772,8 @@ function adjEvent(id,field,delta){
       btn.textContent=label;
     }
   }
+  // Le autoreti contano nel punteggio → ricalcola blocco gol
+  if(field==='ownGoals')updateGoalButtons();
 }
 function adjScore(k,d){S.pScore[k]=Math.max(0,(S.pScore[k]||0)+d);const el=document.getElementById('score-'+k);if(el)el.textContent=S.pScore[k];}
 function adjGoals(id,d){
@@ -1782,13 +1785,20 @@ function adjGoals(id,d){
   // Aggiorna colore + di tutta la squadra (blocco gol)
   updateGoalButtons();
 }
-function adjGoalsChecked(id,teamKey){
-  const conf=Object.entries(S.match.players).filter(([,s])=>s==='confirmed').map(([id])=>id);
+function teamGoalTotal(teamKey){
+  // Totale gol di una squadra = gol propri + autoreti degli avversari
+  const conf=Object.entries(S.match.players||{}).filter(([,s])=>s==='confirmed').map(([id])=>id);
   const confP=S.players.filter(p=>conf.includes(p.id));
   const onA=teamKey==='a';
-  const teamScore=onA?S.pScore.a:S.pScore.b;
-  const teamGoals=confP.filter(x=>S.match.teamA.includes(x.id)===onA).reduce((s,x)=>s+(S.pRatings[x.id]?.goals||0),0);
-  if(teamGoals>=teamScore)return;
+  const propri=confP.filter(x=>S.match.teamA.includes(x.id)===onA)
+    .reduce((s,x)=>s+(S.pRatings[x.id]?.goals||0),0);
+  const autoretAvv=confP.filter(x=>S.match.teamA.includes(x.id)!==onA)
+    .reduce((s,x)=>s+(S.pRatings[x.id]?.ownGoals||0),0);
+  return propri+autoretAvv;
+}
+function adjGoalsChecked(id,teamKey){
+  const teamScore=teamKey==='a'?S.pScore.a:S.pScore.b;
+  if(teamGoalTotal(teamKey)>=teamScore)return;
   adjGoals(id,1);
 }
 function updateGoalButtons(){
@@ -1797,9 +1807,7 @@ function updateGoalButtons(){
   ['a','b'].forEach(teamKey=>{
     const onA=teamKey==='a';
     const teamScore=onA?S.pScore.a:S.pScore.b;
-    const teamGoals=confP.filter(x=>S.match.teamA.includes(x.id)===onA)
-      .reduce((s,x)=>s+(S.pRatings[x.id]?.goals||0),0);
-    const canAdd=teamGoals<teamScore;
+    const canAdd=teamGoalTotal(teamKey)<teamScore;
     confP.filter(x=>S.match.teamA.includes(x.id)===onA).forEach(p=>{
       const btn=document.querySelector(`[data-plus="${p.id}"]`);
       if(btn){btn.style.color=canAdd?'#4ade80':'#374151';}
@@ -1816,16 +1824,24 @@ async function saveResult(){
   const mvpPlayer=S.players.find(p=>p.id===S.pMvp);
   const mvpName=mvpPlayer?.name||'';
 
-  // FIX 2: Validazione gol vs risultato
+  // FIX 2: Validazione gol vs risultato — le autoreti contano per la squadra avversaria
   const conf2=Object.entries(S.match.players||{}).filter(([,s])=>s==='confirmed').map(([id])=>id);
   const confP2=S.players.filter(p=>conf2.includes(p.id));
-  const golBianchi=confP2.filter(p=>S.match.teamA.includes(p.id)).reduce((s,p)=>s+(S.pRatings[p.id]?.goals||0),0);
-  const golNeri=confP2.filter(p=>S.match.teamB.includes(p.id)).reduce((s,p)=>s+(S.pRatings[p.id]?.goals||0),0);
-  if(golBianchi!==sA||golNeri!==sB){
-    const msg=`⚠️ I gol inseriti non corrispondono al risultato:\n\n`+
-      `Bianchi: ${golBianchi} gol inseriti vs ${sA} nel risultato\n`+
-      `Neri: ${golNeri} gol inseriti vs ${sB} nel risultato\n\nVuoi salvare comunque?`;
-    if(!confirm(msg)){S.loading='';return;}
+  const inA=p=>S.match.teamA.includes(p.id);
+  // Gol segnati dai propri giocatori
+  const golDaA=confP2.filter(inA).reduce((s,p)=>s+(S.pRatings[p.id]?.goals||0),0);
+  const golDaB=confP2.filter(p=>!inA(p)).reduce((s,p)=>s+(S.pRatings[p.id]?.goals||0),0);
+  // Autoreti: contano per la squadra AVVERSARIA
+  const autoreteDiA=confP2.filter(inA).reduce((s,p)=>s+(S.pRatings[p.id]?.ownGoals||0),0);
+  const autoreteDiB=confP2.filter(p=>!inA(p)).reduce((s,p)=>s+(S.pRatings[p.id]?.ownGoals||0),0);
+  const totBianchi=golDaA+autoreteDiB;  // gol propri + autoreti dei Neri
+  const totNeri=golDaB+autoreteDiA;     // gol propri + autoreti dei Bianchi
+  if(totBianchi!==sA||totNeri!==sB){
+    const msg=`⚠️ I gol registrati non corrispondono al risultato:\n\n`+
+      `${BIANCHI}: ${golDaA} gol${autoreteDiB>0?' + '+autoreteDiB+' autorete avversaria':''} = ${totBianchi} · risultato ${sA}\n`+
+      `${NERI}: ${golDaB} gol${autoreteDiA>0?' + '+autoreteDiA+' autorete avversaria':''} = ${totNeri} · risultato ${sB}\n\n`+
+      `Vuoi salvare comunque?`;
+    if(!confirm(msg)){S.loading='';render();return;}
   }
 
   // Snapshot livelli PRIMA del salvataggio
@@ -1843,8 +1859,14 @@ async function saveResult(){
     });
     const evTxt=eventiP.length>0?'\nEventi speciali: '+eventiP.join(', ')+'.':'';
     const chron=await ai(
-      `Cronaca calcetto amici venerdì, stile Gazzetta dello Sport ironico.\n${BIANCHI} ${sA} – ${sB} ${NERI}.${evTxt}\nScrivi: 1 TITOLO GRANDE in maiuscolo + racconto MAX 4 righe. Totale 5 righe max.`,
-      'Cronista sportivo esilarante. Ogni partitella è la finale della Champions. Brevissimo e ironico. Se ci sono eventi speciali (autorete, rigore fallito, parata decisiva) citali nel racconto.'
+      `Cronaca calcetto amici venerdì, stile Gazzetta dello Sport ironico.\n`+
+      `RISULTATO: ${BIANCHI} ${sA} – ${sB} ${NERI}.${evTxt}\n`+
+      `REGOLA ASSOLUTA: le due squadre si chiamano ESATTAMENTE "${BIANCHI}" e "${NERI}". `+
+      `NON inventare altri nomi (mai "neroverdi", "biancorossi", "rossoneri" o simili).\n`+
+      `Scrivi: 1 TITOLO GRANDE in maiuscolo + racconto MAX 4 righe. Totale 5 righe max.`,
+      `Cronista sportivo esilarante. Ogni partitella è la finale della Champions. Brevissimo e ironico. `+
+      `Le squadre si chiamano SOLO "${BIANCHI}" e "${NERI}" — non usare mai altri soprannomi. `+
+      `Se ci sono eventi speciali (autorete, rigore fallito, parata decisiva) citali nel racconto.`
     );
     S.match={...S.match,phase:'done',scoreA:sA,scoreB:sB,ratings:{...S.pRatings},mvp:S.pMvp,mvpName,chronicle:chron};saveCm();
     confP.forEach(p=>{const i=S.players.findIndex(x=>x.id===p.id);if(i<0)return;
