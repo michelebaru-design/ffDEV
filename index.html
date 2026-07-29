@@ -1858,14 +1858,25 @@ async function saveResult(){
       if(r.saveDec>0)eventiP.push(pp.name+' parata decisiva');
     });
     const evTxt=eventiP.length>0?'\nEventi speciali: '+eventiP.join(', ')+'.':'';
+    // Marcatori con squadra di appartenenza
+    const marcP=[];
+    Object.entries(S.pRatings).forEach(([id,r])=>{
+      if(!r.goals||r.goals<1)return;
+      const pp=S.players.find(x=>x.id===id);if(!pp)return;
+      const sq=S.match.teamA.includes(id)?BIANCHI:NERI;
+      marcP.push(`${pp.name} (${sq}) ${r.goals} gol`);
+    });
+    const marcTxt=marcP.length>0?'\nMARCATORI: '+marcP.join(', ')+'.':'';
     const chron=await ai(
       `Cronaca calcetto amici venerdì, stile Gazzetta dello Sport ironico.\n`+
-      `RISULTATO: ${BIANCHI} ${sA} – ${sB} ${NERI}.${evTxt}\n`+
-      `REGOLA ASSOLUTA: le due squadre si chiamano ESATTAMENTE "${BIANCHI}" e "${NERI}". `+
+      `RISULTATO: ${BIANCHI} ${sA} – ${sB} ${NERI}.${marcTxt}${evTxt}\n`+
+      `REGOLA ASSOLUTA 1: le due squadre si chiamano ESATTAMENTE "${BIANCHI}" e "${NERI}". `+
       `NON inventare altri nomi (mai "neroverdi", "biancorossi", "rossoneri" o simili).\n`+
+      `REGOLA ASSOLUTA 2: cita i marcatori con il numero ESATTO di gol indicato sopra. Non inventare numeri diversi.\n`+
       `Scrivi: 1 TITOLO GRANDE in maiuscolo + racconto MAX 4 righe. Totale 5 righe max.`,
       `Cronista sportivo esilarante. Ogni partitella è la finale della Champions. Brevissimo e ironico. `+
       `Le squadre si chiamano SOLO "${BIANCHI}" e "${NERI}" — non usare mai altri soprannomi. `+
+      `Riporta SEMPRE i marcatori con il numero esatto di gol che ti viene fornito. `+
       `Se ci sono eventi speciali (autorete, rigore fallito, parata decisiva) citali nel racconto.`
     );
     S.match={...S.match,phase:'done',scoreA:sA,scoreB:sB,ratings:{...S.pRatings},mvp:S.pMvp,mvpName,chronicle:chron};saveCm();
