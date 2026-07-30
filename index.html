@@ -374,17 +374,7 @@ function calcBadges(playerId){
     return(m.ratings?.[playerId]?.goals||0)>=5;
   });
   if(hasFulmine)badges.push({e:'⚡',n:'Fulmine',d:'5+ gol in una partita'});
-  // On Fire — 3 MVP consecutivi
-  let mvpStreak=0;
-  for(const m of [...S.matches].sort((a,b)=>{
-    const pa=a.date?a.date.split('/').reverse().join(''):0;
-    const pb=b.date?b.date.split('/').reverse().join(''):0;
-    return pb.localeCompare(pa);
-  })){
-    if(m.mvp===playerId)mvpStreak++;
-    else break;
-  }
-  if(mvpStreak>=3)badges.push({e:'🔥',n:'On Fire',d:'3 MVP consecutivi'});
+  // On Fire rimosso — MVP non esiste più nel sistema
   return badges;
 }
 
