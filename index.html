@@ -529,6 +529,7 @@ let S={tab:'home',players:[],matches:[],match:null,
   figFilter:'all',    /* filtro ruolo nella galleria figurine */
   figFullscreen:null, /* id giocatore in fullscreen figurine */
   rpgPlayer:null,     /* giocatore selezionato nel tab RPG */
+  h2h:null,           /* confronto testa a testa {a,b} */
   rosaFilter:'all'    /* filtro rosa: all | inactive */
 };
 
@@ -900,6 +901,7 @@ function appShell(){
   ${S.editingMatch!==null?modalEditMatch():''}
   ${S.editingScorers!==null?modalEditScorers():''}
   ${S.showPinModal?modalPin():''}
+  ${S.h2h?modalH2H():''}
 </div>`;}
 
 function go(t){
@@ -1057,6 +1059,10 @@ function pgHome(){
       ${lm.mvpName?`<div style="text-align:center;color:var(--yel);font-size:13px;font-weight:600;margin-bottom:6px">⭐ MVP: ${lm.mvpName}</div>`:''}
       ${lmSc.length>0?`<div style="font-size:12px;color:var(--mut);text-align:center">⚽ ${lmSc.join(' · ')}</div>`:''}
       ${lmEv.length>0?`<div style="font-size:12px;color:#f87171;text-align:center;margin-top:4px">${lmEv.join(' · ')}</div>`:''}
+      <button onclick="shareMatchResult('${lm.id}')" style="width:100%;margin-top:10px;padding:8px;background:transparent;
+        border:1px solid var(--grn3);border-radius:8px;color:var(--grn);font-size:12px;font-weight:600;cursor:pointer">
+        📱 Condividi su WhatsApp
+      </button>
     </div>`:''}
 
     <!-- CLASSIFICHE -->
@@ -1936,6 +1942,9 @@ function pgDone(){
   <div class="card" style="border-color:#16a34a">
     <pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;color:#d1d5db;line-height:1.8">${S.match.chronicle}</pre>
   </div>
+  <button class="btn bg bfw" onclick="shareMatchResult()" style="margin-top:10px;padding:13px;font-size:15px">
+    📱 Condividi risultato su WhatsApp
+  </button>
   <div style="display:flex;gap:8px;margin-top:8px">
     <button class="btn bgr bfw" onclick="closeMatch()">🏁 Chiudi</button>
     <button class="btn bgr bsm" onclick="go('giornale')">📰</button>
@@ -2380,6 +2389,118 @@ function resetSeason(){
 /* ═══════════════════════════════════════
    HELPER STREAK — usato da Gloria e Stats
 ═══════════════════════════════════════ */
+
+/* ═══════════════════════════════════════
+   🤝 CHIMICA DI SQUADRA
+═══════════════════════════════════════ */
+function calcChemistry(playerId){
+  const stats={};
+  S.matches.forEach(m=>{
+    const conf=Object.entries(m.players||{}).filter(([,s])=>s==='confirmed').map(([id])=>id);
+    if(!conf.includes(playerId))return;
+    const onA=m.teamA?.includes(playerId);
+    const onB=m.teamB?.includes(playerId);
+    if(!onA&&!onB)return;
+    const miei=(onA?m.teamA:m.teamB)||[];
+    const myS=onA?(m.scoreA||0):(m.scoreB||0);
+    const oppS=onA?(m.scoreB||0):(m.scoreA||0);
+    const esito=myS>oppS?'V':myS===oppS?'P':'S';
+    miei.forEach(id=>{
+      if(id===playerId)return;
+      if(!conf.includes(id))return;
+      if(!stats[id])stats[id]={id,insieme:0,V:0,P:0,S:0};
+      stats[id].insieme++;
+      stats[id][esito]++;
+    });
+  });
+  return Object.values(stats).map(s=>{
+    const p=S.players.find(x=>x.id===s.id);
+    return {...s, name:p?p.name:'?', role:p?p.role:'',
+      pct: s.insieme>0?Math.round(s.V/s.insieme*100):0,
+      punti: s.insieme>0?+((s.V*3+s.P)/s.insieme).toFixed(2):0};
+  }).filter(s=>s.insieme>=2);  // almeno 2 partite insieme
+}
+
+/* ═══════════════════════════════════════
+   ⚔️ TESTA A TESTA
+═══════════════════════════════════════ */
+function calcH2H(id1,id2){
+  const p1=S.players.find(p=>p.id===id1), p2=S.players.find(p=>p.id===id2);
+  if(!p1||!p2)return null;
+  let insieme=0, insiemeV=0, contro=0, v1=0, v2=0, pari=0;
+  S.matches.forEach(m=>{
+    const conf=Object.entries(m.players||{}).filter(([,s])=>s==='confirmed').map(([id])=>id);
+    if(!conf.includes(id1)||!conf.includes(id2))return;
+    const a1=m.teamA?.includes(id1), a2=m.teamA?.includes(id2);
+    const b1=m.teamB?.includes(id1), b2=m.teamB?.includes(id2);
+    if(!(a1||b1)||!(a2||b2))return;
+    const sA=m.scoreA||0, sB=m.scoreB||0;
+    if(a1===a2&&b1===b2){
+      // stessa squadra
+      insieme++;
+      const myS=a1?sA:sB, oppS=a1?sB:sA;
+      if(myS>oppS)insiemeV++;
+    }else{
+      // avversari
+      contro++;
+      const s1=a1?sA:sB, s2=a2?sA:sB;
+      if(s1>s2)v1++; else if(s2>s1)v2++; else pari++;
+    }
+  });
+  return {
+    p1,p2,
+    xp1:calcPlayerXP(id1), xp2:calcPlayerXP(id2),
+    lv1:getLevelInfo(calcPlayerXP(id1)), lv2:getLevelInfo(calcPlayerXP(id2)),
+    media1:calcMediaP(p1), media2:calcMediaP(p2),
+    insieme, insiemeV, insiemePct: insieme>0?Math.round(insiemeV/insieme*100):0,
+    contro, v1, v2, pari
+  };
+}
+
+/* ═══════════════════════════════════════
+   📱 RIEPILOGO WHATSAPP PARTITA
+═══════════════════════════════════════ */
+function shareMatchResult(matchId){
+  const m = matchId ? S.matches.find(x=>x.id===matchId) : (S.matches[0]||S.match);
+  if(!m||m.scoreA===null||m.scoreA===undefined){alert('Nessuna partita da condividere');return;}
+  const sc=matchScorers(m), ev=matchEvents(m);
+  const link=localStorage.getItem('ff_shareurl')||location.href.split('?')[0];
+
+  // Marcatori raggruppati per squadra
+  const marcA=[],marcB=[];
+  Object.entries(m.ratings||{}).forEach(([id,r])=>{
+    if(!r.goals||r.goals<1)return;
+    const p=S.players.find(x=>x.id===id); if(!p)return;
+    const txt=p.name+(r.goals>1?' ×'+r.goals:'');
+    (m.teamA?.includes(id)?marcA:marcB).push(txt);
+  });
+
+  // Level up rilevati
+  const levelUps=[];
+  const conf=Object.entries(m.players||{}).filter(([,s])=>s==='confirmed').map(([id])=>id);
+  conf.forEach(id=>{
+    const p=S.players.find(x=>x.id===id); if(!p)return;
+    const li=getLevelInfo(calcPlayerXP(id));
+    if(li.lv>=5)levelUps.push(p.name+' Lv.'+li.lv+' '+li.name);
+  });
+
+  let msg = `⚽ *FOOTBALL FRIDAY* — ${m.date}\n`;
+  msg += `━━━━━━━━━━━━━━━━━\n`;
+  msg += `⚪ *${BIANCHI} ${m.scoreA} – ${m.scoreB} ${NERI}* ⚫\n`;
+  msg += `━━━━━━━━━━━━━━━━━\n`;
+  if(marcA.length)msg += `\n⚪ ${marcA.join(', ')}`;
+  if(marcB.length)msg += `\n⚫ ${marcB.join(', ')}`;
+  if(ev.length)msg += `\n\n${ev.join('\n')}`;
+  if(m.chronicle){
+    const righe=m.chronicle.split('\n').filter(r=>r.trim());
+    if(righe.length)msg += `\n\n📰 _${righe[0]}_`;
+  }
+  msg += `\n\n📱 ${link}`;
+
+  if(navigator.share){navigator.share({text:msg}).catch(()=>copyToClipboard(msg));}
+  else copyToClipboard(msg);
+}
+
 function playerMatchResults(playerId){
   function parseItDate(d){
     if(!d)return 0;
@@ -2909,6 +3030,122 @@ function pgStats(){
         </div>`).join('')}
       </div>`;
     })()}
+
+    <!-- 🤝 CHIMICA DI SQUADRA -->
+    ${(()=>{
+      const chem=calcChemistry(p.id);
+      if(chem.length<2)return `<div class="card">
+        <div style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:8px">🤝 CHIMICA DI SQUADRA</div>
+        <div style="font-size:12px;color:#6b7280;font-style:italic">Servono almeno 2 partite insieme ad altri giocatori per calcolare la chimica.</div>
+      </div>`;
+      const best=[...chem].sort((a,b)=>b.pct-a.pct||b.insieme-a.insieme).slice(0,3);
+      const worst=[...chem].sort((a,b)=>a.pct-b.pct||b.insieme-a.insieme).slice(0,3);
+      const riga=(c,col)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #1f2937">
+        <span style="font-size:15px">${RICON[c.role]||'⚽'}</span>
+        <span style="flex:1;font-weight:600;font-size:13px">${c.name}</span>
+        <span style="font-size:10px;color:#6b7280">${c.insieme} insieme</span>
+        <span style="font-weight:800;font-size:15px;color:${col};min-width:44px;text-align:right">${c.pct}%</span>
+      </div>`;
+      return `<div class="card">
+        <div style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:4px">🤝 CHIMICA DI SQUADRA</div>
+        <div style="font-size:10px;color:#4b5563;margin-bottom:10px">Percentuale di vittorie giocando nella stessa squadra</div>
+        <div style="font-size:10px;color:#4ade80;font-weight:700;letter-spacing:1px;margin:6px 0 2px">💚 FUNZIONA MEGLIO CON</div>
+        ${best.map(c=>riga(c,'#4ade80')).join('')}
+        <div style="font-size:10px;color:#f87171;font-weight:700;letter-spacing:1px;margin:12px 0 2px">💔 FATICA DI PIÙ CON</div>
+        ${worst.map(c=>riga(c,'#f87171')).join('')}
+      </div>`;
+    })()}
+
+    <!-- ⚔️ CONFRONTA -->
+    <div class="card">
+      <div style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:10px">⚔️ TESTA A TESTA</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:8px">Confronta ${p.name} con un altro giocatore</div>
+      <select onchange="if(this.value){S.h2h={a:'${p.id}',b:this.value};render()}"
+        style="width:100%;padding:10px;border-radius:10px;background:#111827;border:1px solid #374151;color:#e5e7eb;font-size:14px">
+        <option value="">Scegli un avversario...</option>
+        ${S.players.filter(x=>x.id!==p.id&&x.role!=='Mister'&&x.G>0).sort((a,b)=>a.name.localeCompare(b.name))
+          .map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
+      </select>
+    </div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════
+   ⚔️ MODAL TESTA A TESTA
+═══════════════════════════════════════ */
+function modalH2H(){
+  const d=calcH2H(S.h2h.a,S.h2h.b);
+  if(!d)return '';
+  const {p1,p2,xp1,xp2,lv1,lv2,media1,media2,insieme,insiemeV,insiemePct,contro,v1,v2,pari}=d;
+  const RCOL={Portiere:'#60a5fa',Difensore:'#4ade80',Centrocampista:'#fbbf24',Attaccante:'#f87171'};
+
+  const riga=(label,val1,val2,fmt)=>{
+    const n1=parseFloat(val1)||0, n2=parseFloat(val2)||0;
+    const c1=n1>n2?'#4ade80':n1<n2?'#6b7280':'#e5e7eb';
+    const c2=n2>n1?'#4ade80':n2<n1?'#6b7280':'#e5e7eb';
+    return `<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid #1f2937">
+      <span style="flex:1;text-align:right;font-weight:800;font-size:16px;color:${c1}">${fmt?fmt(val1):val1}</span>
+      <span style="width:120px;text-align:center;font-size:10px;color:#6b7280;letter-spacing:1px">${label}</span>
+      <span style="flex:1;text-align:left;font-weight:800;font-size:16px;color:${c2}">${fmt?fmt(val2):val2}</span>
+    </div>`;
+  };
+
+  const testa=(p,lv,col)=>`<div style="flex:1;text-align:center">
+    <div style="width:56px;height:56px;border-radius:50%;margin:0 auto 6px;overflow:hidden;border:3px solid ${col};
+      background:#1f2937;display:flex;align-items:center;justify-content:center;font-size:24px">
+      <img src="${playerPhoto(p.name)}" style="width:100%;height:100%;object-fit:cover" onerror="this.hidden=true"/>
+      ${RICON[p.role]}
+    </div>
+    <div style="font-weight:800;font-size:14px">${p.name}</div>
+    <div style="font-size:10px;color:${col}">Lv.${lv.lv} ${lv.name}</div>
+  </div>`;
+
+  return `<div class="ov" onclick="if(event.target===this){S.h2h=null;render()}">
+    <div class="mod" style="max-width:480px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #1f2937">
+        <span style="font-weight:800;font-size:15px">⚔️ Testa a testa</span>
+        <button onclick="S.h2h=null;render()" style="background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="padding:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          ${testa(p1,lv1,RCOL[p1.role]||'#6b7280')}
+          <div style="font-size:20px;color:#4b5563;font-weight:900">VS</div>
+          ${testa(p2,lv2,RCOL[p2.role]||'#6b7280')}
+        </div>
+
+        <div style="background:#0a0f1a;border-radius:12px;padding:10px 14px;margin-bottom:12px">
+          ${riga('PRESENZE',p1.G,p2.G)}
+          ${riga('VITTORIE',p1.V,p2.V)}
+          ${riga('GOL',p1.GF,p2.GF)}
+          ${riga('MEDIA PUNTI',media1.toFixed(3),media2.toFixed(3))}
+          ${riga('XP',xp1,xp2)}
+        </div>
+
+        ${contro>0?`<div style="background:linear-gradient(135deg,#2a0d0d,#1a0808);border:1px solid #7f1d1d;border-radius:12px;padding:12px;margin-bottom:10px">
+          <div style="font-size:10px;color:#f87171;font-weight:700;letter-spacing:1px;text-align:center;margin-bottom:8px">⚔️ DA AVVERSARI · ${contro} SFIDE</div>
+          <div style="display:flex;align-items:center;text-align:center">
+            <div style="flex:1"><div style="font-size:26px;font-weight:900;color:${v1>v2?'#4ade80':'#e5e7eb'}">${v1}</div>
+              <div style="font-size:9px;color:#6b7280">vinte</div></div>
+            <div style="flex:1"><div style="font-size:26px;font-weight:900;color:#9ca3af">${pari}</div>
+              <div style="font-size:9px;color:#6b7280">pari</div></div>
+            <div style="flex:1"><div style="font-size:26px;font-weight:900;color:${v2>v1?'#4ade80':'#e5e7eb'}">${v2}</div>
+              <div style="font-size:9px;color:#6b7280">vinte</div></div>
+          </div>
+        </div>`:''}
+
+        ${insieme>0?`<div style="background:linear-gradient(135deg,#052e16,#0a1f0a);border:1px solid #14532d;border-radius:12px;padding:12px">
+          <div style="font-size:10px;color:#4ade80;font-weight:700;letter-spacing:1px;text-align:center;margin-bottom:6px">🤝 NELLA STESSA SQUADRA</div>
+          <div style="text-align:center">
+            <div style="font-size:30px;font-weight:900;color:#4ade80">${insiemePct}%</div>
+            <div style="font-size:11px;color:#9ca3af">${insiemeV} vittorie su ${insieme} partite insieme</div>
+          </div>
+        </div>`:''}
+
+        ${contro===0&&insieme===0?`<div style="text-align:center;padding:16px;color:#6b7280;font-size:12px;font-style:italic">
+          Non hanno ancora dati in comune registrati
+        </div>`:''}
+      </div>
+    </div>
   </div>`;
 }
 
