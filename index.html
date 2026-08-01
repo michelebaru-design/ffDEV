@@ -204,6 +204,7 @@ input[type=range]{accent-color:var(--grn);width:100%}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:pulse-dot 1.5s infinite}
 @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
 @keyframes lvlUp{from{opacity:0;transform:scale(.8) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes confFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:.2}}
 
 /* ═══ SCORE DISPLAY ═══ */
 .score-display{
@@ -987,8 +988,16 @@ function pgHome(){
   const lmSc=lm?matchScorers(lm):[];
   const lmEv=lm?matchEvents(lm):[];
   const topS=[...S.players].sort((a,b)=>b.GF-a.GF).filter(p=>p.GF>0).slice(0,3);
+  const streaks=bestStreaks().slice(0,3);
+  const cd=daysToFriday();
+  const fact=randomFact();
 
   return `<div style="max-width:640px;margin:0 auto">
+
+    <!-- ⏳ COUNTDOWN -->
+    ${!S.match?`<div style="text-align:center;font-size:12px;color:${cd.n===0?'var(--grn)':'var(--mut)'};font-weight:${cd.n===0?'700':'500'};margin-bottom:10px;letter-spacing:.5px">
+      ${cd.n===0?'⚽ '+cd.txt:'⏳ '+cd.txt}
+    </div>`:''}
 
     <!-- MATCH BANNER -->
     ${S.match?`<div class="match-banner">
@@ -1063,6 +1072,21 @@ function pgHome(){
         border:1px solid var(--grn3);border-radius:8px;color:var(--grn);font-size:12px;font-weight:600;cursor:pointer">
         📱 Condividi su WhatsApp
       </button>
+    </div>`:''}
+
+    <!-- 💡 CURIOSITÀ -->
+    ${fact?`<div style="background:var(--bg2);border:1px solid #1e2a1e;border-left:3px solid var(--grn);border-radius:8px;padding:10px 14px;margin-bottom:12px">
+      <div style="font-size:10px;color:var(--grn);letter-spacing:1.5px;font-weight:700;margin-bottom:3px">💡 LO SAPEVI?</div>
+      <div style="font-size:13px;color:var(--txt);line-height:1.5">${fact}</div>
+    </div>`:''}
+
+    <!-- 🔥 SERIE IN CORSO -->
+    ${streaks.length>0?`<div class="card" style="background:linear-gradient(135deg,#1a0d00,#0f0a00);border-color:#7c2d12">
+      <div class="dash-label" style="color:#fb923c">🔥 Serie in corso</div>
+      ${streaks.map((x,i)=>`<div class="row" style="padding:6px 0;${i<streaks.length-1?'border-bottom:1px solid #2a1a0a':''}">
+        <span style="color:var(--txt);font-weight:${i===0?'700':'500'}">${RICON[x.p.role]||'⚽'} ${x.p.name}</span>
+        <span style="font-weight:800;color:#fb923c">${x.s.n} vittorie di fila</span>
+      </div>`).join('')}
     </div>`:''}
 
     <!-- CLASSIFICHE -->
@@ -1496,6 +1520,19 @@ function pgTeams(){
   </div>
   ${S.editTeams?swapUI():''}
   ${!S.editTeams?`<div class="g2">${teamCard(tA,'⚪ '+BIANCHI,'#e5e7eb','#1c2030')}${teamCard(tB,'⚫ '+NERI,'#6b7280','#0d1117')}</div>`:''}
+  ${(()=>{
+    if(S.editTeams)return '';
+    const d=findDerbies();
+    if(!d.length)return '';
+    return `<div style="background:linear-gradient(135deg,#1a0a0a,#0f0505);border:1px solid #7f1d1d;border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:#f87171;letter-spacing:1px;margin-bottom:8px">⚔️ DERBY DI GIORNATA</div>
+      ${d.map(x=>`<div style="padding:5px 0;font-size:12px;color:#d1d5db">
+        <span style="font-weight:700">${x.p1.name}</span> vs <span style="font-weight:700">${x.p2.name}</span>
+        <span style="color:#9ca3af"> — sfida n°${x.n}</span>
+        <span style="color:#6b7280;font-size:11px"> (${x.v1}-${x.pari}-${x.v2})</span>
+      </div>`).join('')}
+    </div>`;
+  })()}
   ${S.match.teamExpl&&!S.editTeams?`<div class="anti"><div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:6px">🛡️ ANTI-POLEMICA</div>
     <div style="font-size:12px;color:#d1d5db;line-height:1.6">${S.match.teamExpl}</div></div>`:''}
   ${!S.editTeams?`<div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1901,20 +1938,46 @@ async function saveResult(){
 
 /* ══ LEVEL UP POPUP ══ */
 function showLevelUpPopup(levelUps){
+  const leggenda=levelUps.some(lu=>lu.lv===10);
   const el=document.createElement('div');
-  el.style.cssText='position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);backdrop-filter:blur(6px)';
-  el.innerHTML=`<div style="background:#0d2a0d;border:2px solid var(--grn);border-radius:20px;padding:28px 24px;max-width:340px;width:90%;text-align:center;animation:lvlUp .4s ease">
-    <div style="font-size:48px;margin-bottom:8px">🎮</div>
-    <div style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:900;color:var(--grn);letter-spacing:1px;margin-bottom:16px">LEVEL UP!</div>
-    ${levelUps.map(lu=>`<div style="background:#0a1f0a;border:1px solid #1e4a1e;border-radius:12px;padding:12px;margin-bottom:8px">
-      <div style="font-size:16px;font-weight:700;color:var(--txt)">${lu.name}</div>
-      <div style="font-size:28px;font-weight:900;color:var(--grn);margin:4px 0">Lv.${lu.lv}</div>
-      <div style="font-size:14px;color:var(--yel);font-weight:600">${lu.lvName.toUpperCase()}</div>
-    </div>`).join('')}
-    <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-top:10px;padding:12px 28px;background:var(--grn2);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif">🔥 Forza!</button>
+  el.style.cssText='position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.88);backdrop-filter:blur(6px);overflow:hidden';
+
+  // Confetti dorati solo per il livello massimo
+  const confetti=leggenda?Array.from({length:40},(_,i)=>{
+    const cols=['#fbbf24','#f59e0b','#fcd34d','#fde68a','#eab308'];
+    const c=cols[i%cols.length];
+    const left=Math.random()*100, delay=Math.random()*2.5, dur=2.5+Math.random()*2;
+    const w=5+Math.random()*6, h=8+Math.random()*8;
+    return `<div style="position:absolute;top:-30px;left:${left}%;width:${w}px;height:${h}px;background:${c};
+      border-radius:2px;animation:confFall ${dur}s linear ${delay}s infinite;pointer-events:none"></div>`;
+  }).join(''):'';
+
+  const bg=leggenda?'linear-gradient(160deg,#2a1f00,#1a1400)':'#0d2a0d';
+  const brd=leggenda?'#fbbf24':'var(--grn)';
+  const acc=leggenda?'#fbbf24':'var(--grn)';
+
+  el.innerHTML=`${confetti}
+  <div style="background:${bg};border:2px solid ${brd};border-radius:20px;padding:28px 24px;max-width:340px;width:90%;text-align:center;animation:lvlUp .4s ease;position:relative;z-index:2;
+    ${leggenda?'box-shadow:0 0 60px rgba(251,191,36,.35)':''}">
+    <div style="font-size:${leggenda?'56px':'48px'};margin-bottom:8px">${leggenda?'👑':'🎮'}</div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:900;color:${acc};letter-spacing:1px;margin-bottom:16px">
+      ${leggenda?'LEGGENDA!':'LEVEL UP!'}
+    </div>
+    ${levelUps.map(lu=>{
+      const max=lu.lv===10;
+      return `<div style="background:${max?'#1a1400':'#0a1f0a'};border:1px solid ${max?'#78350f':'#1e4a1e'};border-radius:12px;padding:12px;margin-bottom:8px">
+        <div style="font-size:16px;font-weight:700;color:var(--txt)">${lu.name}</div>
+        <div style="font-size:28px;font-weight:900;color:${max?'#fbbf24':'var(--grn)'};margin:4px 0">Lv.${lu.lv}</div>
+        <div style="font-size:14px;color:var(--yel);font-weight:600">${lu.lvName.toUpperCase()}${max?' 👑':''}</div>
+      </div>`;
+    }).join('')}
+    <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-top:10px;padding:12px 28px;background:${leggenda?'#b45309':'var(--grn2)'};border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif">
+      ${leggenda?'👑 Leggenda!':'🔥 Forza!'}
+    </button>
   </div>`;
   document.body.appendChild(el);
   el.addEventListener('click',e=>{if(e.target===el)el.remove();});
+  if(leggenda){try{navigator.vibrate&&navigator.vibrate([40,60,40,60,80]);}catch(e){}}
 }
 
 function pgDone(){
@@ -2122,6 +2185,18 @@ function pgGiornale(){
       ${lm.chronicle?`<div style="font-size:13px;line-height:1.75;color:#2a1010;font-family:Georgia,serif;border-left:4px solid #E30613;padding-left:10px">${lm.chronicle.split('\n').filter(l=>l.trim()).slice(1,5).join('<br>')}</div>`:''}
     </div>`:''}
     <div style="margin-bottom:16px">
+      ${(()=>{
+        const pm=playerOfTheMonth();
+        if(!pm)return '';
+        const b=pm.best;
+        return `<div style="background:#fffbeb;border:2px solid #E30613;border-radius:6px;padding:10px 14px;margin-bottom:14px">
+          <div style="font-size:10px;font-weight:800;color:#E30613;letter-spacing:2px;font-family:-apple-system,sans-serif">⭐ GIOCATORE DEL MOMENTO</div>
+          <div class="gz-head" style="font-size:22px;color:#1a1a1a;margin:4px 0">${b.name.toUpperCase()}</div>
+          <div style="font-size:12px;color:#5a2020;font-family:-apple-system,sans-serif">
+            ${b.V} vittorie · ${b.gol} gol nelle ultime ${pm.partite} partite
+          </div>
+        </div>`;
+      })()}
       <div class="gz-head gz-red" style="font-size:clamp(16px,5vw,22px);border-bottom:3px solid #E30613;padding-bottom:4px;margin-bottom:10px">⚽ CLASSIFICA MARCATORI</div>
       ${topS.length>0?`<table style="width:100%;border-collapse:collapse;font-family:-apple-system,sans-serif">
         <thead><tr style="background:#E30613;color:white;font-size:10px;letter-spacing:1px">
@@ -2499,6 +2574,177 @@ function shareMatchResult(matchId){
 
   if(navigator.share){navigator.share({text:msg}).catch(()=>copyToClipboard(msg));}
   else copyToClipboard(msg);
+}
+
+
+/* ═══════════════════════════════════════
+   🔥 SERIE IN CORSO (STREAK)
+═══════════════════════════════════════ */
+function calcStreak(playerId){
+  // Ritorna la serie attuale del giocatore (partite più recenti prima)
+  const res=playerMatchResults(playerId);
+  if(!res.length)return null;
+  const tipo=res[0].r;               // V, P o S della partita più recente
+  let n=0;
+  for(const r of res){ if(r.r===tipo)n++; else break; }
+  return {tipo,n};
+}
+function bestStreaks(){
+  // Migliori serie di vittorie in corso nel gruppo
+  return S.players
+    .filter(p=>p.role!=='Mister'&&!p.inactive&&p.G>0)
+    .map(p=>({p,s:calcStreak(p.id)}))
+    .filter(x=>x.s&&x.s.tipo==='V'&&x.s.n>=2)
+    .sort((a,b)=>b.s.n-a.s.n||b.p.G-a.p.G);
+}
+
+/* ═══════════════════════════════════════
+   😈 NEMESI — rendimento contro gli avversari
+═══════════════════════════════════════ */
+function calcNemesis(playerId){
+  const stats={};
+  S.matches.forEach(m=>{
+    const conf=Object.entries(m.players||{}).filter(([,s])=>s==='confirmed').map(([id])=>id);
+    if(!conf.includes(playerId))return;
+    const onA=m.teamA?.includes(playerId);
+    const onB=m.teamB?.includes(playerId);
+    if(!onA&&!onB)return;
+    const avversari=(onA?m.teamB:m.teamA)||[];
+    const myS=onA?(m.scoreA||0):(m.scoreB||0);
+    const oppS=onA?(m.scoreB||0):(m.scoreA||0);
+    const esito=myS>oppS?'V':myS===oppS?'P':'S';
+    avversari.forEach(id=>{
+      if(!conf.includes(id))return;
+      if(!stats[id])stats[id]={id,contro:0,V:0,P:0,S:0};
+      stats[id].contro++;
+      stats[id][esito]++;
+    });
+  });
+  return Object.values(stats).map(s=>{
+    const p=S.players.find(x=>x.id===s.id);
+    return {...s,name:p?p.name:'?',role:p?p.role:'',
+      pct:s.contro>0?Math.round(s.V/s.contro*100):0};
+  }).filter(s=>s.contro>=2);
+}
+
+/* ═══════════════════════════════════════
+   ⚔️ DERBY — sfide ricorrenti tra avversari
+═══════════════════════════════════════ */
+function findDerbies(){
+  // Coppie di avversari nella partita corrente che si sono già sfidate spesso
+  if(!S.match||!S.match.teamA?.length||!S.match.teamB?.length)return [];
+  const out=[];
+  S.match.teamA.forEach(a=>{
+    S.match.teamB.forEach(b=>{
+      const h=calcH2H(a,b);
+      if(!h||h.contro<4)return;
+      out.push({p1:h.p1,p2:h.p2,n:h.contro+1,v1:h.v1,v2:h.v2,pari:h.pari});
+    });
+  });
+  return out.sort((x,y)=>y.n-x.n).slice(0,3);
+}
+
+
+/* ═══════════════════════════════════════
+   ⭐ GIOCATORE DEL MOMENTO (ultime 4 partite)
+═══════════════════════════════════════ */
+function playerOfTheMonth(){
+  const recenti=S.matches.slice(0,4);
+  if(recenti.length<2)return null;
+  const st={};
+  recenti.forEach(m=>{
+    const conf=Object.entries(m.players||{}).filter(([,s])=>s==='confirmed').map(([id])=>id);
+    conf.forEach(id=>{
+      const p=S.players.find(x=>x.id===id);
+      if(!p||p.role==='Mister')return;
+      if(!st[id])st[id]={id,name:p.name,role:p.role,G:0,V:0,P:0,gol:0,pt:0};
+      st[id].G++;
+      const onA=m.teamA?.includes(id);
+      const my=onA?(m.scoreA||0):(m.scoreB||0);
+      const op=onA?(m.scoreB||0):(m.scoreA||0);
+      if(my>op){st[id].V++;st[id].pt+=3;}
+      else if(my===op){st[id].P++;st[id].pt+=1;}
+      const g=m.ratings?.[id]?.goals||0;
+      st[id].gol+=g;
+      st[id].pt+=g*2;   // ogni gol vale 2 punti nel ranking del momento
+    });
+  });
+  const lista=Object.values(st).filter(x=>x.G>=2).sort((a,b)=>b.pt-a.pt||b.gol-a.gol);
+  return lista.length?{best:lista[0],partite:recenti.length}:null;
+}
+
+
+/* ═══════════════════════════════════════
+   ⏳ COUNTDOWN AL PROSSIMO VENERDÌ
+═══════════════════════════════════════ */
+function daysToFriday(){
+  const now=new Date();
+  const d=now.getDay();            // 0=dom .. 5=ven .. 6=sab
+  const h=now.getHours();
+  if(d===5&&h<23)return {n:0,txt:'È VENERDÌ! ⚽'};
+  let diff=(5-d+7)%7;
+  if(diff===0)diff=7;              // venerdì tardi → il prossimo
+  return {n:diff, txt: diff===1?'Manca 1 giorno al Football Friday':'Mancano '+diff+' giorni al Football Friday'};
+}
+
+/* ═══════════════════════════════════════
+   💡 CURIOSITÀ — fatti generati dai dati
+═══════════════════════════════════════ */
+function randomFact(){
+  const att=S.players.filter(p=>p.role!=='Mister'&&!p.inactive&&p.G>0);
+  if(att.length<3||S.matches.length<3)return null;
+  const facts=[];
+
+  // 1. Cannoniere: gol per partita
+  const cann=[...att].filter(p=>p.G>=5&&p.GF>0).sort((a,b)=>(b.GF/b.G)-(a.GF/a.G))[0];
+  if(cann)facts.push(`${cann.name} segna in media ${(cann.GF/cann.G).toFixed(1)} gol a partita`);
+
+  // 2. Serie in corso più lunga
+  const st=bestStreaks()[0];
+  if(st)facts.push(`${st.p.name} non perde da ${st.s.n} partite`);
+
+  // 3. Presenza record
+  const pres=[...att].sort((a,b)=>b.G-a.G)[0];
+  if(pres&&pres.G>=5)facts.push(`${pres.name} è il più presente con ${pres.G} partite giocate`);
+
+  // 4. Miglior chimica del gruppo
+  let bestChem=null;
+  att.slice(0,20).forEach(p=>{
+    calcChemistry(p.id).forEach(c=>{
+      if(c.insieme>=3&&(!bestChem||c.pct>bestChem.pct))bestChem={a:p.name,b:c.name,pct:c.pct,n:c.insieme};
+    });
+  });
+  if(bestChem&&bestChem.pct>=70)
+    facts.push(`${bestChem.a} e ${bestChem.b} insieme vincono il ${bestChem.pct}% delle volte`);
+
+  // 5. Media gol a partita del gruppo
+  const golTot=S.players.reduce((s,p)=>s+p.GF,0);
+  if(S.matches.length>0)
+    facts.push(`Si segnano in media ${(golTot/S.matches.length).toFixed(1)} gol a partita`);
+
+  // 6. Portiere meno battuto
+  const por=att.filter(p=>p.role==='Portiere'&&p.G>=3);
+  if(por.length){
+    const best=[...por].sort((a,b)=>(a.GS/a.G)-(b.GS/b.G))[0];
+    if(best&&best.GS>0)facts.push(`${best.name} subisce solo ${(best.GS/best.G).toFixed(1)} gol a partita`);
+  }
+
+  // 7. Chi ha più XP
+  const topXP=[...att].map(p=>({p,xp:calcPlayerXP(p.id)})).sort((a,b)=>b.xp-a.xp)[0];
+  if(topXP&&topXP.xp>0){
+    const li=getLevelInfo(topXP.xp);
+    facts.push(`${topXP.p.name} guida la classifica XP: Lv.${li.lv} ${li.name}`);
+  }
+
+  // 8. Differenza tra primo e secondo marcatore
+  const mm=[...att].filter(p=>p.GF>0).sort((a,b)=>b.GF-a.GF);
+  if(mm.length>=2&&mm[0].GF>mm[1].GF)
+    facts.push(`${mm[0].name} guida i marcatori con ${mm[0].GF-mm[1].GF} gol di vantaggio su ${mm[1].name}`);
+
+  if(!facts.length)return null;
+  // Cambia ogni giorno ma resta stabile durante la giornata
+  const seed=Math.floor(Date.now()/86400000);
+  return facts[seed%facts.length];
 }
 
 function playerMatchResults(playerId){
@@ -3053,6 +3299,28 @@ function pgStats(){
         ${best.map(c=>riga(c,'#4ade80')).join('')}
         <div style="font-size:10px;color:#f87171;font-weight:700;letter-spacing:1px;margin:12px 0 2px">💔 FATICA DI PIÙ CON</div>
         ${worst.map(c=>riga(c,'#f87171')).join('')}
+      </div>`;
+    })()}
+
+    <!-- 😈 NEMESI -->
+    ${(()=>{
+      const nem=calcNemesis(p.id);
+      if(nem.length<2)return '';
+      const peggio=[...nem].sort((a,b)=>a.pct-b.pct||b.contro-a.contro).slice(0,3);
+      const meglio=[...nem].sort((a,b)=>b.pct-a.pct||b.contro-a.contro).slice(0,3);
+      const riga=(c,col)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #1f2937">
+        <span style="font-size:15px">${RICON[c.role]||'⚽'}</span>
+        <span style="flex:1;font-weight:600;font-size:13px">${c.name}</span>
+        <span style="font-size:10px;color:#6b7280">${c.contro} sfide</span>
+        <span style="font-weight:800;font-size:15px;color:${col};min-width:44px;text-align:right">${c.pct}%</span>
+      </div>`;
+      return `<div class="card">
+        <div style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:4px">😈 NEMESI</div>
+        <div style="font-size:10px;color:#4b5563;margin-bottom:10px">Percentuale di vittorie giocando CONTRO questi avversari</div>
+        <div style="font-size:10px;color:#f87171;font-weight:700;letter-spacing:1px;margin:6px 0 2px">😈 LE TUE BESTIE NERE</div>
+        ${peggio.map(c=>riga(c,'#f87171')).join('')}
+        <div style="font-size:10px;color:#4ade80;font-weight:700;letter-spacing:1px;margin:12px 0 2px">😎 LE TUE VITTIME PREFERITE</div>
+        ${meglio.map(c=>riga(c,'#4ade80')).join('')}
       </div>`;
     })()}
 
